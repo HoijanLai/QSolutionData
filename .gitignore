@@ -17,3 +17,6 @@ __pycache__/
 
 # Office temporary files
 ~$*
+
+# Local working files
+tmp/
