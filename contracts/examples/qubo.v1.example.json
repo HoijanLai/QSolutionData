@@ -1,0 +1,13 @@
+{
+  "schema": "qubo.v1",
+  "problem_id": "two-asset-example",
+  "sense": "minimize",
+  "num_variables": 2,
+  "variable_names": ["asset_a", "asset_b"],
+  "offset": 4.0,
+  "terms": [[0, 0, -6.0], [0, 1, 8.0], [1, 1, -5.0]],
+  "metadata": {
+    "source_schema": "cbqm.v1",
+    "constraint_penalty": 4.0
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:qsolutiondata:schema:cbqm.v1",
+  "title": "Constrained Binary Quadratic Model v1",
+  "type": "object",
+  "required": ["schema", "problem_id", "variables", "objective", "constraints", "fixed_values"],
+  "properties": {
+    "schema": {"const": "cbqm.v1"},
+    "problem_id": {"type": "string", "minLength": 1},
+    "variables": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/variable"}
+    },
+    "objective": {"$ref": "#/$defs/objective"},
+    "constraints": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/constraint"}
+    },
+    "fixed_values": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/fixedValue"}
+    },
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "finiteNumber": {"type": "number"},
+    "linearTerm": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer", "minimum": 0},
+        {"$ref": "#/$defs/finiteNumber"}
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "quadraticTerm": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer", "minimum": 0},
+        {"type": "integer", "minimum": 0},
+        {"$ref": "#/$defs/finiteNumber"}
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "variable": {
+      "type": "object",
+      "required": ["index", "name", "vartype"],
+      "properties": {
+        "index": {"type": "integer", "minimum": 0},
+        "name": {"type": "string", "minLength": 1},
+        "vartype": {"const": "BINARY"},
+        "kind": {"type": "string"},
+        "metadata": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "objective": {
+      "type": "object",
+      "required": ["sense", "offset", "linear", "quadratic"],
+      "properties": {
+        "sense": {"enum": ["minimize", "maximize"]},
+        "offset": {"$ref": "#/$defs/finiteNumber"},
+        "linear": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/linearTerm"}
+        },
+        "quadratic": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/quadraticTerm"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "constraint": {
+      "type": "object",
+      "required": ["name", "family", "linear"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "family": {"type": "string", "minLength": 1},
+        "linear": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/linearTerm"}
+        },
+        "lower_bound": {"$ref": "#/$defs/finiteNumber"},
+        "upper_bound": {"$ref": "#/$defs/finiteNumber"},
+        "metadata": {"type": "object"}
+      },
+      "anyOf": [
+        {"required": ["lower_bound"]},
+        {"required": ["upper_bound"]}
+      ],
+      "additionalProperties": false
+    },
+    "fixedValue": {
+      "type": "object",
+      "required": ["index", "value"],
+      "properties": {
+        "index": {"type": "integer", "minimum": 0},
+        "value": {"enum": [0, 1]}
+      },
+      "additionalProperties": false
+    }
+  }
+}
