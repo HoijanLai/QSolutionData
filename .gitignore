@@ -1,0 +1,19 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local datasets
+*.csv
+*.tsv
+*.xls
+*.xlsx
+*.parquet
+*.feather
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.jsonl
+
+# Office temporary files
+~$*
