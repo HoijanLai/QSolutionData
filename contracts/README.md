@@ -1,10 +1,11 @@
 # Optimization interface contracts
 
-This directory is the versioned boundary between model construction, QUBO
-compilation, solvers, and solver adapters. The JSON field names and numerical
-conventions in this directory are part of the public contract.
+This directory contains the versioned boundaries between model construction,
+representation-specific compilation, solvers, and solver adapters. The JSON
+field names and numerical conventions in this directory are part of the public
+contract. The currently complete solver path is the QUBO path below.
 
-## Contract flow
+## Implemented QUBO contract flow
 
 ```text
 cbqm.v1
@@ -19,12 +20,19 @@ Backend-specific representations, including Qiskit `QuadraticProgram`,
 PennyLane Hamiltonians, and Q-RBnBR `MaxCutProblem`, sit behind adapters and
 must not change these contracts.
 
+This is the currently implemented QUBO path, not a restriction on all future
+solvers. The Python contract layer also exposes a representation-neutral
+`Solver[ProblemT, ResultT]` call shape. A solver that consumes `cbqm.v1`, an MIS
+graph, or an oracle specification directly must bind that shape to its own
+versioned input/output schemas; it must not label a non-QUBO result as
+`qubo-result.v1`.
+
 ## Files
 
 - `schemas/cbqm.v1.schema.json`: constrained binary quadratic model.
-- `schemas/qubo.v1.schema.json`: canonical solver input.
-- `schemas/qubo-result.v1.schema.json`: canonical solver output.
-- `python/solver_protocol.py`: dependency-free Python solver signature.
+- `schemas/qubo.v1.schema.json`: canonical QUBO solver input.
+- `schemas/qubo-result.v1.schema.json`: canonical QUBO solver output.
+- `../lib/contracts/solver_protocol.py`: dependency-free runtime signature.
 - `examples/`: mutually consistent minimal payloads.
 
 ## Shared conventions
@@ -68,6 +76,14 @@ equality. `fixed_values` are hard assignments and are not penalty hints.
 constraint compilation policy. Those choices belong to `compile_qubo` and
 must be recorded in the generated QUBO metadata.
 
+The portfolio reference builder is `lib.portfolio.build_portfolio_cbqm`. It
+requires an explicit objective configuration and converts the prepared
+portfolio payload into this contract without adding constraint penalties.
+
+The reference compiler is `lib.compilers.compile_qubo`. It returns both a
+`qubo.v1` payload and `qubo-compilation-context.v1`; its penalty and numerical
+encoding choices are supplied explicitly by the caller.
+
 ## `qubo.v1`
 
 `qubo.v1` is the only input a generic QUBO solver must understand. It always
@@ -85,7 +101,7 @@ there is no implicit factor of two.
 The returned energy must include `offset`. A solver may omit the constant while
 optimizing internally, but it must restore it in `qubo-result.v1`.
 
-## Solver signature
+## QUBO solver signature
 
 The canonical Python call is:
 
@@ -103,8 +119,9 @@ result = solver.solve(problem, config=None)
 - Solvers must not mutate `problem` or `config`.
 
 The dependency-free structural interface is defined in
-`python/solver_protocol.py`. A solver need not inherit from a project base
-class; satisfying the method signature is sufficient.
+`lib/contracts/solver_protocol.py`. `QuboSolver` is the schema-specific
+specialization used by this flow; the generic `Solver` protocol only shares the
+call shape. A solver need not inherit from either protocol.
 
 ## `qubo-result.v1`
 
@@ -138,3 +155,7 @@ result = adapter.to_result(native_solution, context)
 variable-to-node mapping, auxiliary anchor node, and any QUBO-to-Ising/MaxCut
 energy transformation. The final adapter output must again satisfy
 `qubo-result.v1` and report energy in the original QUBO convention.
+
+The reference implementations live in `lib/adapters/`. In particular,
+`QRBnBRSolverAdapter` exposes a native Q-RBnBR solver through the canonical
+`solve(problem, config=None)` signature.

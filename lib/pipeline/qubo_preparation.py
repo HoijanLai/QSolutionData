@@ -1,11 +1,11 @@
 import pandas as pd
 
-from .asset_classification import asset_classification
-from .asset_scoring import asset_scoring
-from .asset_similarity import asset_similarity
-from .client_profile import client_profile
-from .portfolio_constraints import portfolio_constraints
-from .weight_encoding import DEFAULT_WEIGHT_LEVELS, weight_encoding
+from ..preprocessing.asset_classification import asset_classification
+from ..preprocessing.asset_scoring import asset_scoring
+from ..preprocessing.asset_similarity import asset_similarity
+from ..portfolio.client_profile import client_profile
+from ..portfolio.portfolio_constraints import portfolio_constraints
+from ..portfolio.weight_encoding import DEFAULT_WEIGHT_LEVELS, weight_encoding
 
 
 def prepare_qubo_inputs(
@@ -19,6 +19,38 @@ def prepare_qubo_inputs(
     weight_levels=None,
     constraint_strategy='document_rules',
 ):
+    """Orchestrate asset analytics and portfolio-constraint preparation.
+
+    Args:
+        df: Formatted asset DataFrame. It must contain unique ``code`` values,
+            ``investment_type_secondary``, and all metrics required by scoring
+            and similarity modules.
+        manager_df: Optional metadata frame with unique ``code`` and non-missing
+            ``fund_manager``. It is required when ``df`` has no manager column.
+        profile: Client-profile name or alias passed to ``client_profile``.
+        score_weights: Optional nested metric-weight overrides for scoring.
+        similarity_strategy: Asset-similarity strategy.
+        high_threshold: Threshold for high-similarity pairs and groups.
+        low_threshold: Threshold for low-similarity pairs.
+        weight_levels: Optional allowed allocation levels. Defaults to
+            ``DEFAULT_WEIGHT_LEVELS``.
+        constraint_strategy: Portfolio-constraint policy.
+
+    Returns:
+        A Python payload containing aligned asset metadata, derived scores,
+        similarity outputs, client profile, weight-variable mapping, structured
+        constraints, fixed variables, summaries, and provenance metadata.
+
+    Raises:
+        TypeError: If an input container has the wrong type.
+        ValueError: If required data is missing, duplicated, or misaligned.
+        NotImplementedError: If a selected downstream strategy is unavailable.
+
+    Notes:
+        The function never mutates ``df`` or ``manager_df``. The returned payload
+        still contains pandas objects and becomes a neutral serializable model
+        only after ``build_portfolio_cbqm``.
+    """
     _validate_qubo_input(df, manager_df)
     aligned_df = _align_manager_data(df, manager_df)
     _validate_asset_alignment(aligned_df)
@@ -60,6 +92,7 @@ def prepare_qubo_inputs(
 
 
 def _validate_qubo_input(df, manager_df):
+    """Validate qubo input."""
     if not isinstance(df, pd.DataFrame):
         raise TypeError('df must be a pandas DataFrame.')
     if df.empty:
@@ -94,6 +127,7 @@ def _validate_qubo_input(df, manager_df):
 
 
 def _align_manager_data(df, manager_df):
+    """Align manager data."""
     result = df.copy()
     result['code'] = result['code'].astype('string').str.strip()
 
@@ -140,6 +174,7 @@ def _align_manager_data(df, manager_df):
 
 
 def _validate_asset_alignment(df):
+    """Validate asset alignment."""
     if df['fund_manager'].isna().any():
         raise ValueError('Manager alignment produced missing fund managers.')
     if df['code'].duplicated().any():
@@ -147,6 +182,7 @@ def _validate_asset_alignment(df):
 
 
 def _build_asset_output(df, style_clusters):
+    """Build asset output."""
     preferred_columns = [
         'code',
         'security_name',
@@ -174,6 +210,7 @@ def _build_qubo_payload(
     high_threshold,
     low_threshold,
 ):
+    """Build qubo payload."""
     assets = _build_asset_output(df, similarity_result['style_clusters'])
     return {
         'assets': assets,
@@ -201,6 +238,7 @@ def _build_qubo_payload(
 
 
 def _validate_qubo_payload(payload):
+    """Validate qubo payload."""
     asset_codes = payload['assets']['code'].astype('string').tolist()
     asset_count = len(asset_codes)
     if len(set(asset_codes)) != asset_count:

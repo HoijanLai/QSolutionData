@@ -3,9 +3,10 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from lib.asset_scoring import RETURN_COLUMNS, RISK_COLUMNS, STABILITY_COLUMNS
-from lib.asset_similarity import SIMILARITY_COLUMNS
-from lib.qubo_preparation import prepare_qubo_inputs
+from lib.preprocessing.asset_scoring import RETURN_COLUMNS, RISK_COLUMNS, STABILITY_COLUMNS
+from lib.preprocessing.asset_similarity import SIMILARITY_COLUMNS
+from lib.pipeline.qubo_preparation import prepare_qubo_inputs
+from lib.portfolio.cbqm_builder import build_portfolio_cbqm
 
 
 class QuboPreparationTests(unittest.TestCase):
@@ -76,6 +77,36 @@ class QuboPreparationTests(unittest.TestCase):
         df['fund_manager'] = ['m1', 'm1', 'm2', 'm2', 'm3', 'm4']
         payload = prepare_qubo_inputs(df, profile='conservative')
         self.assertEqual(6, len(payload['assets']))
+
+    def test_prepared_payload_builds_valid_cbqm(self):
+        payload = prepare_qubo_inputs(
+            self.df,
+            manager_df=self.manager_df,
+            profile='conservative',
+        )
+        objective_config = {
+            'score_coefficients': {
+                'return_score': -1.0,
+                'risk_score': 1.0,
+                'stability_score': -1.0,
+            },
+            'similarity_coefficient': 1.0,
+            'similarity_transform': 'raw',
+        }
+
+        problem = build_portfolio_cbqm(
+            payload,
+            objective_config,
+            problem_id='prepared-portfolio',
+        )
+
+        self.assertEqual('cbqm.v1', problem['schema'])
+        self.assertEqual(48, len(problem['variables']))
+        self.assertEqual(
+            payload['constraint_summary']['constraint_count'],
+            len(problem['constraints']),
+        )
+        self.assertGreater(len(problem['objective']['quadratic']), 0)
 
     def test_rejects_missing_manager_code(self):
         managers = self.manager_df.iloc[:-1].copy()

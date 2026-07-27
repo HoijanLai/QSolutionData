@@ -6,6 +6,23 @@ DEFAULT_WEIGHT_LEVELS = (0.00, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15)
 
 
 def weight_encoding(df, levels=DEFAULT_WEIGHT_LEVELS):
+    """Create one-hot binary variables for every asset and allowed weight level.
+
+    Args:
+        df: Non-empty DataFrame containing unique, non-blank asset ``code``
+            values.
+        levels: Sorted unique numeric weight levels in ``[0, 1]``. The first
+            level must be zero so an asset can be omitted from the portfolio.
+
+    Returns:
+        A dictionary containing normalized ``weight_levels``, a
+        ``variable_mapping`` DataFrame, a name-keyed ``weight_lookup``, and the
+        total ``variable_count``. Variable order is asset-major, then level.
+
+    Raises:
+        TypeError: If the frame or levels have invalid types.
+        ValueError: If codes or levels violate the encoding invariants.
+    """
     _validate_weight_data(df)
     normalized_levels = _validate_weight_levels(levels)
     variable_mapping = _build_binary_variable_mapping(df, normalized_levels)
@@ -19,6 +36,7 @@ def weight_encoding(df, levels=DEFAULT_WEIGHT_LEVELS):
 
 
 def _validate_weight_data(df):
+    """Validate weight data."""
     if not isinstance(df, pd.DataFrame):
         raise TypeError('df must be a pandas DataFrame.')
     if df.empty:
@@ -34,6 +52,7 @@ def _validate_weight_data(df):
 
 
 def _validate_weight_levels(levels):
+    """Validate weight levels."""
     if isinstance(levels, (str, bytes)):
         raise TypeError('levels must be an iterable of numeric values.')
     try:
@@ -55,6 +74,7 @@ def _validate_weight_levels(levels):
 
 
 def _build_binary_variable_mapping(df, levels):
+    """Build binary variable mapping."""
     rows = []
     codes = df['code'].astype('string').str.strip().tolist()
 
@@ -74,6 +94,7 @@ def _build_binary_variable_mapping(df, levels):
 
 
 def _build_weight_lookup(mapping):
+    """Build weight lookup."""
     return {
         row.variable_name: {
             'variable_index': row.variable_index,
@@ -85,4 +106,5 @@ def _build_weight_lookup(mapping):
 
 
 def _calculate_variable_count(df, levels):
+    """Calculate variable count."""
     return len(df) * len(levels)

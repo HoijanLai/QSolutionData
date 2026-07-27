@@ -27,6 +27,27 @@ def asset_similarity(
     high_threshold=0.85,
     low_threshold=0.30,
 ):
+    """Compute asset similarity, pair sets, connected groups, and clusters.
+
+    Args:
+        df: DataFrame with unique non-empty ``code`` values and all columns in
+            ``SIMILARITY_COLUMNS``. The input is not mutated.
+        strategy: Similarity implementation. Version 1 supports ``cosine``.
+        high_threshold: Inclusive threshold used for high-similarity pairs,
+            connected groups, and style clusters.
+        low_threshold: Inclusive upper threshold used for low-similarity pairs.
+
+    Returns:
+        A dictionary containing ``similarity_matrix``,
+        ``high_similarity_pairs``, ``low_similarity_pairs``,
+        ``high_similarity_groups``, and ``style_clusters``. Matrix labels and
+        outputs remain aligned with the input asset codes.
+
+    Raises:
+        TypeError: If ``df`` is not a DataFrame.
+        ValueError: If data, codes, features, or thresholds are invalid.
+        NotImplementedError: If the requested strategy is unavailable.
+    """
     _validate_similarity_data(df, high_threshold, low_threshold)
 
     if strategy == 'cosine':
@@ -61,6 +82,7 @@ def asset_similarity(
 
 
 def _validate_similarity_data(df, high_threshold, low_threshold):
+    """Validate similarity data."""
     if not isinstance(df, pd.DataFrame):
         raise TypeError('df must be a pandas DataFrame.')
     if len(df) < 2:
@@ -87,10 +109,12 @@ def _validate_similarity_data(df, high_threshold, low_threshold):
 
 
 def _select_similarity_features(df):
+    """Select similarity features."""
     return df.loc[:, SIMILARITY_COLUMNS].apply(pd.to_numeric, errors='coerce')
 
 
 def _standardize_features(features):
+    """Standardize features."""
     standardized = pd.DataFrame(index=features.index)
 
     for column in features.columns:
@@ -106,6 +130,7 @@ def _standardize_features(features):
 
 
 def _calculate_cosine_similarity(matrix, labels=None):
+    """Calculate cosine similarity."""
     values = np.asarray(matrix, dtype=float)
     norms = np.linalg.norm(values, axis=1)
     denominator = np.outer(norms, norms)
@@ -124,6 +149,7 @@ def _calculate_cosine_similarity(matrix, labels=None):
 
 
 def _extract_similarity_pairs(matrix, threshold, mode):
+    """Extract similarity pairs."""
     if mode not in {'high', 'low'}:
         raise ValueError("mode must be either 'high' or 'low'.")
 
@@ -144,6 +170,7 @@ def _extract_similarity_pairs(matrix, threshold, mode):
 
 
 def _build_similarity_groups(pairs):
+    """Build similarity groups."""
     if pairs.empty:
         return []
 
@@ -173,6 +200,7 @@ def _build_similarity_groups(pairs):
 
 
 def _cluster_asset_styles(matrix, threshold=0.85):
+    """Cluster asset styles."""
     pairs = _extract_similarity_pairs(matrix, threshold, mode='high')
     groups = _build_similarity_groups(pairs)
     cluster_by_code = {}

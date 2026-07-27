@@ -2,7 +2,7 @@ import unittest
 
 import pandas as pd
 
-from lib.asset_classification import asset_classification
+from lib.preprocessing.asset_classification import asset_classification
 
 
 class AssetClassificationTests(unittest.TestCase):

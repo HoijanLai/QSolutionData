@@ -50,3 +50,9 @@ Thumbs.db
 
 # Local working files
 tmp/
+*.code-workspace
+
+# Local agent configuration
+.agents/
+AGENTS.md
+.codex/

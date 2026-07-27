@@ -29,6 +29,30 @@ STABILITY_COLUMNS = (
 
 
 def asset_scoring(df, weights=None, strategy='weighted'):
+    """Derive comparable return, risk, and stability scores for each asset.
+
+    Every source metric is converted to numeric, missing values are median
+    imputed, and the cross-sectional values are standardized before weighted
+    aggregation. Drawdowns contribute by magnitude to the risk score.
+
+    Args:
+        df: Non-empty DataFrame containing every column declared by
+            ``RETURN_COLUMNS``, ``RISK_COLUMNS``, and ``STABILITY_COLUMNS``.
+        weights: Optional nested mapping keyed by ``return``, ``risk``, and
+            ``stability``. Partial per-metric overrides are accepted and each
+            group is normalized to sum to one.
+        strategy: Scoring implementation. Version 1 supports ``weighted``.
+
+    Returns:
+        ``(scored_df, resolved_weights)``. ``scored_df`` is a copy with three
+        new score columns; ``resolved_weights`` records the normalized weights
+        actually used.
+
+    Raises:
+        TypeError: If input or weight containers have the wrong type.
+        ValueError: If metrics or weights are missing or invalid.
+        NotImplementedError: If the requested strategy is unavailable.
+    """
     _validate_scoring_data(df)
 
     if strategy == 'weighted':
@@ -46,6 +70,7 @@ def asset_scoring(df, weights=None, strategy='weighted'):
 
 
 def _validate_scoring_data(df):
+    """Validate scoring data."""
     if not isinstance(df, pd.DataFrame):
         raise TypeError('df must be a pandas DataFrame.')
     if df.empty:
@@ -63,6 +88,7 @@ def _validate_scoring_data(df):
 
 
 def _resolve_score_weights(weights):
+    """Resolve score weights."""
     groups = {
         'return': RETURN_COLUMNS,
         'risk': RISK_COLUMNS,
@@ -107,6 +133,7 @@ def _resolve_score_weights(weights):
 
 
 def _calculate_weighted_score(df, columns, weights, absolute_columns=()):
+    """Calculate weighted score."""
     standardized = pd.DataFrame(index=df.index)
 
     for column in columns:
@@ -128,10 +155,12 @@ def _calculate_weighted_score(df, columns, weights, absolute_columns=()):
 
 
 def _calculate_return_score(df, weights):
+    """Calculate return score."""
     return _calculate_weighted_score(df, RETURN_COLUMNS, weights)
 
 
 def _calculate_risk_score(df, weights):
+    """Calculate risk score."""
     return _calculate_weighted_score(
         df,
         RISK_COLUMNS,
@@ -141,4 +170,5 @@ def _calculate_risk_score(df, weights):
 
 
 def _calculate_stability_score(df, weights):
+    """Calculate stability score."""
     return _calculate_weighted_score(df, STABILITY_COLUMNS, weights)

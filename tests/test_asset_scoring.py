@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from lib.asset_scoring import (
+from lib.preprocessing.asset_scoring import (
     RETURN_COLUMNS,
     RISK_COLUMNS,
     STABILITY_COLUMNS,

@@ -1,6 +1,6 @@
 import unittest
 
-from lib.client_profile import client_profile
+from lib.portfolio.client_profile import client_profile
 
 
 class ClientProfileTests(unittest.TestCase):

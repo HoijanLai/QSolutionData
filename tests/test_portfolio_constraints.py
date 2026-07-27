@@ -2,9 +2,9 @@ import unittest
 
 import pandas as pd
 
-from lib.client_profile import client_profile
-from lib.portfolio_constraints import portfolio_constraints
-from lib.weight_encoding import weight_encoding
+from lib.portfolio.client_profile import client_profile
+from lib.portfolio.portfolio_constraints import portfolio_constraints
+from lib.portfolio.weight_encoding import weight_encoding
 
 
 class PortfolioConstraintsTests(unittest.TestCase):

@@ -2,7 +2,7 @@ import unittest
 
 import pandas as pd
 
-from lib.weight_encoding import DEFAULT_WEIGHT_LEVELS, weight_encoding
+from lib.portfolio.weight_encoding import DEFAULT_WEIGHT_LEVELS, weight_encoding
 
 
 class WeightEncodingTests(unittest.TestCase):

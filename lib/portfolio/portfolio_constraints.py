@@ -13,6 +13,33 @@ def portfolio_constraints(
     investment_type_limit=0.35,
     similarity_group_limit=0.40,
 ):
+    """Build structured linear portfolio constraints before QUBO compilation.
+
+    Args:
+        df: Classified asset DataFrame containing codes, managers, investment
+            types, asset classes, and risk levels.
+        client_template: Validated profile dictionary, normally returned by
+            :func:`client_profile`.
+        variable_mapping: DataFrame returned by :func:`weight_encoding`.
+        similarity_groups: Optional iterable of high-similarity asset-code
+            groups.
+        strategy: Constraint policy. Version 1 supports ``document_rules``.
+        manager_limit: Maximum combined portfolio weight per repeated manager.
+        investment_type_limit: Maximum combined weight per repeated secondary
+            investment type.
+        similarity_group_limit: Maximum combined weight per similarity group.
+
+    Returns:
+        A dictionary with ``constraints`` in bounded sparse-linear form,
+        ``fixed_variables`` that must equal zero, and a family-count summary.
+        No penalties or slack variables are introduced at this stage.
+
+    Raises:
+        TypeError: If a required container has the wrong type.
+        ValueError: If inputs are missing, misaligned, duplicated, or outside
+            supported bounds.
+        NotImplementedError: If the requested strategy is unavailable.
+    """
     _validate_constraint_data(
         df,
         client_template,
@@ -85,6 +112,7 @@ def _validate_constraint_data(
     investment_type_limit,
     similarity_group_limit,
 ):
+    """Validate constraint data."""
     if not isinstance(df, pd.DataFrame):
         raise TypeError('df must be a pandas DataFrame.')
     if df.empty:
@@ -142,6 +170,7 @@ def _validate_constraint_data(
 
 
 def _validate_variable_mapping(variable_mapping, asset_codes):
+    """Validate variable mapping."""
     if not isinstance(variable_mapping, pd.DataFrame):
         raise TypeError('variable_mapping must be a pandas DataFrame.')
     if variable_mapping.empty:
@@ -188,6 +217,7 @@ def _validate_variable_mapping(variable_mapping, asset_codes):
 
 
 def _validate_similarity_groups(similarity_groups, asset_codes):
+    """Validate similarity groups."""
     if not isinstance(similarity_groups, (list, tuple)):
         raise TypeError('similarity_groups must be a list or tuple of groups.')
 
@@ -205,6 +235,7 @@ def _validate_similarity_groups(similarity_groups, asset_codes):
 
 
 def _build_budget_constraint(variable_mapping):
+    """Build budget constraint."""
     return _make_constraint(
         name='budget',
         family='budget',
@@ -215,6 +246,7 @@ def _build_budget_constraint(variable_mapping):
 
 
 def _build_single_weight_level_constraints(variable_mapping):
+    """Build single weight level constraints."""
     constraints = []
     for code, group in variable_mapping.groupby('code', sort=False, observed=True):
         terms = {name: 1.0 for name in group['variable_name']}
@@ -231,6 +263,7 @@ def _build_single_weight_level_constraints(variable_mapping):
 
 
 def _build_holding_count_constraint(variable_mapping, holding_count):
+    """Build holding count constraint."""
     if (
         not isinstance(holding_count, (tuple, list))
         or len(holding_count) != 2
@@ -259,6 +292,7 @@ def _build_holding_count_constraint(variable_mapping, holding_count):
 
 
 def _build_single_asset_cap_constraints(variable_mapping, cap):
+    """Build single asset cap constraints."""
     if not isinstance(cap, (int, float)) or not 0 <= cap <= 1:
         raise ValueError('single_asset_cap must be between 0 and 1.')
 
@@ -281,6 +315,7 @@ def _build_single_asset_cap_constraints(variable_mapping, cap):
 
 
 def _build_asset_class_constraints(df, client_template, variable_mapping):
+    """Build asset class constraints."""
     constraints = []
     ranges = client_template['asset_class_ranges']
     if not isinstance(ranges, dict):
@@ -311,6 +346,7 @@ def _build_asset_class_constraints(df, client_template, variable_mapping):
 
 
 def _build_r5_constraint(df, client_template, variable_mapping):
+    """Build r5 constraint."""
     cap = client_template['r5_cap']
     if not isinstance(cap, (int, float)) or not 0 <= cap <= 1:
         raise ValueError('r5_cap must be between 0 and 1.')
@@ -327,6 +363,7 @@ def _build_r5_constraint(df, client_template, variable_mapping):
 
 
 def _build_manager_constraints(df, variable_mapping, limit):
+    """Build manager constraints."""
     return _build_group_cap_constraints(
         df,
         variable_mapping,
@@ -337,6 +374,7 @@ def _build_manager_constraints(df, variable_mapping, limit):
 
 
 def _build_investment_type_constraints(df, variable_mapping, limit):
+    """Build investment type constraints."""
     return _build_group_cap_constraints(
         df,
         variable_mapping,
@@ -353,6 +391,7 @@ def _build_group_cap_constraints(
     limit,
     family,
 ):
+    """Build group cap constraints."""
     constraints = []
     for group_name, group in df.groupby(group_column, sort=False, observed=True):
         if len(group) < 2:
@@ -371,6 +410,7 @@ def _build_group_cap_constraints(
 
 
 def _build_similarity_group_constraints(variable_mapping, groups, limit):
+    """Build similarity group constraints."""
     constraints = []
     for group_index, group in enumerate(groups):
         codes = list(dict.fromkeys(str(code).strip() for code in group))
@@ -389,6 +429,7 @@ def _build_similarity_group_constraints(variable_mapping, groups, limit):
 
 
 def _build_weight_terms(variable_mapping):
+    """Build weight terms."""
     return {
         row.variable_name: float(row.weight_level)
         for row in variable_mapping.itertuples(index=False)
@@ -397,6 +438,7 @@ def _build_weight_terms(variable_mapping):
 
 
 def _build_group_weight_terms(variable_mapping, codes):
+    """Build group weight terms."""
     code_set = {str(code).strip() for code in codes}
     selected = variable_mapping.loc[
         variable_mapping['code'].astype('string').isin(code_set)
@@ -411,6 +453,7 @@ def _make_constraint(
     lower_bound=None,
     upper_bound=None,
 ):
+    """Create constraint."""
     if lower_bound is not None and upper_bound is not None:
         constraint_type = 'equality' if lower_bound == upper_bound else 'range'
     elif upper_bound is not None:
@@ -433,6 +476,7 @@ def _validate_generated_constraints(
     fixed_variables,
     variable_mapping,
 ):
+    """Validate generated constraints."""
     valid_variables = set(variable_mapping['variable_name'])
     names = [constraint['name'] for constraint in constraints]
     if len(names) != len(set(names)):
@@ -471,6 +515,7 @@ def _validate_generated_constraints(
 
 
 def _build_constraint_summary(constraints, fixed_variables):
+    """Build constraint summary."""
     family_counts = {}
     for constraint in constraints:
         family = constraint['family']

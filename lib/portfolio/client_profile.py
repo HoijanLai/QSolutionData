@@ -15,6 +15,26 @@ PROFILE_ALIASES = {
 
 
 def client_profile(profile='steady', overrides=None):
+    """Return an independent, validated client-allocation profile.
+
+    Args:
+        profile: Canonical profile name or supported alias. Canonical values are
+            ``conservative``, ``steady``, ``balanced``, and ``aggressive``.
+        overrides: Optional mapping of profile fields to replace. Nested
+            ``asset_class_ranges`` overrides are merged by asset class.
+
+    Returns:
+        A deep-copied dictionary containing targets, holding-count bounds,
+        concentration caps, asset-class ranges, and the R5 allocation cap.
+
+    Raises:
+        TypeError: If profile or override containers have invalid types.
+        ValueError: If a name, field, bound, or range is unsupported.
+
+    Notes:
+        Templates are never returned by reference, so callers may safely modify
+        the resulting dictionary without changing future calls.
+    """
     profile_name = _validate_client_profile(profile)
     templates = _get_client_profile_templates()
     selected = deepcopy(templates[profile_name])
@@ -27,6 +47,7 @@ def client_profile(profile='steady', overrides=None):
 
 
 def _get_client_profile_templates():
+    """Return client profile templates."""
     return {
         'conservative': {
             'name': 'conservative',
@@ -96,6 +117,7 @@ def _get_client_profile_templates():
 
 
 def _validate_client_profile(profile):
+    """Validate client profile."""
     if not isinstance(profile, str):
         raise TypeError('profile must be a string.')
 
@@ -109,6 +131,7 @@ def _validate_client_profile(profile):
 
 
 def _apply_profile_overrides(profile, overrides):
+    """Apply profile overrides."""
     if not isinstance(overrides, dict):
         raise TypeError('overrides must be a dictionary.')
 
@@ -132,6 +155,7 @@ def _apply_profile_overrides(profile, overrides):
 
 
 def _validate_profile_values(profile):
+    """Validate profile values."""
     for field in ('target_return', 'volatility_cap', 'drawdown_cap', 'single_asset_cap', 'r5_cap'):
         value = profile[field]
         if not isinstance(value, (int, float)) or not 0 <= value <= 1:

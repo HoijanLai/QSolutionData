@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from lib.asset_similarity import SIMILARITY_COLUMNS, asset_similarity
+from lib.preprocessing.asset_similarity import SIMILARITY_COLUMNS, asset_similarity
 
 
 class AssetSimilarityTests(unittest.TestCase):

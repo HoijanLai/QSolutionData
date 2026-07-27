@@ -2,6 +2,24 @@ import pandas as pd
 
 
 def asset_classification(df, strategy='rules', unknown_policy='raise'):
+    """Classify each asset into a broad asset class and risk level.
+
+    Args:
+        df: Non-empty pandas DataFrame containing
+            ``investment_type_secondary``. The input is never mutated.
+        strategy: Classification implementation. Version 1 supports ``rules``.
+        unknown_policy: ``raise`` rejects an unmapped investment type; ``keep``
+            emits the explicit ``unknown`` category.
+
+    Returns:
+        A copied DataFrame with categorical ``asset_class`` and ``risk_level``
+        columns aligned to the original rows.
+
+    Raises:
+        TypeError: If ``df`` is not a DataFrame.
+        ValueError: If required data is empty, missing, or invalid.
+        NotImplementedError: If the requested strategy is unavailable.
+    """
     _validate_classification_data(df, unknown_policy)
 
     if strategy == 'rules':
@@ -22,6 +40,7 @@ def asset_classification(df, strategy='rules', unknown_policy='raise'):
 
 
 def _validate_classification_data(df, unknown_policy):
+    """Validate classification data."""
     if not isinstance(df, pd.DataFrame):
         raise TypeError('df must be a pandas DataFrame.')
     if df.empty:
@@ -35,6 +54,7 @@ def _validate_classification_data(df, unknown_policy):
 
 
 def _get_asset_class_rules():
+    """Return asset class rules."""
     return {
         '货币市场型基金': 'cash_money',
         'money_market': 'cash_money',
@@ -72,6 +92,7 @@ def _get_asset_class_rules():
 
 
 def _get_risk_level_rules():
+    """Return risk level rules."""
     asset_rules = _get_asset_class_rules()
     risk_by_asset_class = {
         'cash_money': 'R1',
@@ -98,6 +119,7 @@ def _get_risk_level_rules():
 
 
 def _classify_asset_type(investment_type, rules, unknown_policy):
+    """Classify asset type."""
     key = str(investment_type).strip()
     if key in rules:
         return rules[key]
@@ -107,6 +129,7 @@ def _classify_asset_type(investment_type, rules, unknown_policy):
 
 
 def _classify_risk_level(investment_type, rules, unknown_policy):
+    """Classify risk level."""
     key = str(investment_type).strip()
     if key in rules:
         return rules[key]
