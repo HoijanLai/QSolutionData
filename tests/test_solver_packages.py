@@ -14,7 +14,10 @@ class SolverPackageTests(unittest.TestCase):
     def test_subpackages_do_not_claim_unimplemented_solvers(self):
         self.assertEqual([], cbqm.__all__)
         self.assertEqual([], mis.__all__)
-        self.assertEqual(['BaseQuboSolver', 'QuboSolveOutcome'], qubo.__all__)
+        self.assertEqual(
+            ['BaseQuboSolver', 'ExactQuboSolver', 'QuboSolveOutcome'],
+            qubo.__all__,
+        )
 
 
 if __name__ == '__main__':
