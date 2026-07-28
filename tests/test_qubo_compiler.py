@@ -67,6 +67,18 @@ class QuboCompilerTests(unittest.TestCase):
             context['constraints'][0]['encodings'][0]['status'],
             'encoded',
         )
+        self.assertTrue(
+            context['constraints'][0]['normalization']['exact_reconstruction']
+        )
+        self.assertEqual(
+            context['constraints'][0]['normalization'][
+                'max_abs_reconstruction_error'
+            ],
+            0.0,
+        )
+        self.assertTrue(context['equivalence']['exact_projection_certified'])
+        self.assertTrue(context['equivalence']['arithmetic_exact'])
+        self.assertEqual(context['dropped_qubo_terms'], [])
 
     def test_upper_bound_binary_slack_has_exact_minimum_penalty(self):
         self.problem['objective']['linear'] = []
@@ -204,6 +216,106 @@ class QuboCompilerTests(unittest.TestCase):
                     'rounding_tolerance': 1e-4,
                 },
             )
+
+    def test_accepted_constraint_rounding_disables_exact_projection(self):
+        self.problem['constraints'][0]['linear'][0][1] = 1 / 3
+
+        _, context = compile_qubo(
+            self.problem,
+            {
+                'default_penalty': 4.0,
+                'constraint_precision': 2,
+                'rounding_tolerance': 0.01,
+            },
+        )
+
+        normalization = context['constraints'][0]['normalization']
+        self.assertFalse(normalization['exact_reconstruction'])
+        self.assertGreater(normalization['max_abs_reconstruction_error'], 0.0)
+        self.assertFalse(context['equivalence']['constraint_lattice_exact'])
+        self.assertFalse(context['equivalence']['exact_projection_certified'])
+
+    def test_dropping_nonzero_qubo_term_disables_exact_projection(self):
+        self.problem['constraints'] = []
+        self.problem['objective']['linear'] = [[0, 1e-13]]
+
+        qubo, context = compile_qubo(
+            self.problem,
+            {'default_penalty': 4.0},
+        )
+
+        self.assertEqual(qubo['terms'], [])
+        self.assertEqual(context['dropped_qubo_terms'], [[0, 0, 1e-13]])
+        self.assertFalse(context['equivalence']['no_nonzero_terms_dropped'])
+        self.assertFalse(context['equivalence']['objective_mapping_preserved'])
+        self.assertFalse(context['equivalence']['exact_projection_certified'])
+
+    def test_inexact_float_aggregation_disables_exact_projection(self):
+        self.problem['constraints'][0]['linear'] = [
+            [0, 1.0],
+            [1, 3.0],
+        ]
+
+        _, context = compile_qubo(
+            self.problem,
+            {'default_penalty': 0.1},
+        )
+
+        self.assertFalse(context['arithmetic']['exact_accumulation'])
+        self.assertFalse(context['equivalence']['arithmetic_exact'])
+        self.assertFalse(context['equivalence']['objective_mapping_preserved'])
+        self.assertFalse(context['equivalence']['exact_projection_certified'])
+
+    def test_fixed_constraint_cancellation_uses_stable_exact_sum(self):
+        self.problem = {
+            'schema': 'cbqm.v1',
+            'problem_id': 'fixed-cancellation',
+            'variables': [
+                {'index': 0, 'name': 'f_pos', 'vartype': 'BINARY'},
+                {'index': 1, 'name': 'f_one', 'vartype': 'BINARY'},
+                {'index': 2, 'name': 'f_neg', 'vartype': 'BINARY'},
+                {'index': 3, 'name': 'x', 'vartype': 'BINARY'},
+            ],
+            'objective': {
+                'sense': 'minimize',
+                'offset': 0.0,
+                'linear': [[3, 1.0]],
+                'quadratic': [],
+            },
+            'constraints': [
+                {
+                    'name': 'stable-fixed-sum',
+                    'family': 'numeric',
+                    'linear': [
+                        [0, 1e16],
+                        [1, 1.0],
+                        [2, -1e16],
+                        [3, 1.0],
+                    ],
+                    'lower_bound': 0.5,
+                },
+            ],
+            'fixed_values': [
+                {'index': 0, 'value': 1},
+                {'index': 1, 'value': 1},
+                {'index': 2, 'value': 1},
+            ],
+            'metadata': {},
+        }
+
+        qubo, context = compile_qubo(
+            self.problem,
+            {'default_penalty': 4.0},
+        )
+
+        constraint = context['constraints'][0]
+        self.assertEqual(1.0, constraint['fixed_contribution'])
+        self.assertTrue(
+            constraint['fixed_substitution']['exact_reconstruction']
+        )
+        self.assertEqual('redundant', constraint['encodings'][0]['status'])
+        self.assertEqual([[0, 0, 1.0]], qubo['terms'])
+        self.assertTrue(context['equivalence']['exact_projection_certified'])
 
 
 if __name__ == '__main__':

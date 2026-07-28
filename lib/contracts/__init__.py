@@ -7,6 +7,7 @@ from .solver_protocol import (
     Solver,
     SolverConfig,
 )
+from .validation import validate_cbqm, validate_qubo, validate_qubo_result
 
 __all__ = [
     'QuboProblem',
@@ -14,4 +15,7 @@ __all__ = [
     'QuboSolver',
     'Solver',
     'SolverConfig',
+    'validate_cbqm',
+    'validate_qubo',
+    'validate_qubo_result',
 ]

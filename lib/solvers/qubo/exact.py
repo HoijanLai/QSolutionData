@@ -9,6 +9,7 @@ against, and it catches mistakes in QUBO compilation and energy conventions.
 import math
 import time
 
+from ...contracts.validation import _evaluate_qubo_exact
 from .base import BaseQuboSolver, QuboSolveOutcome
 
 
@@ -150,11 +151,8 @@ class ExactQuboSolver(BaseQuboSolver):
         ]
 
     def _evaluate_candidate(self, problem, sample):
-        """Evaluate the sparse upper-triangular canonical QUBO expression."""
-        energy = float(problem['offset'])
-        for left, right, coefficient in problem['terms']:
-            energy += coefficient * sample[left] * sample[right]
-        return float(energy)
+        """Use exact JSON-number arithmetic for the proof comparison."""
+        return _evaluate_qubo_exact(problem, sample)
 
     def _optimal_outcome(
         self,

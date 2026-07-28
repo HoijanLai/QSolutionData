@@ -111,6 +111,41 @@ class ExactQuboSolverTests(unittest.TestCase):
         self.assertEqual('optimal', result['status'])
         self.assertTrue(result['metrics']['search_space_exhausted'])
 
+    def test_large_integer_offset_does_not_hide_one_unit_improvement(self):
+        problem = {
+            'schema': 'qubo.v1',
+            'problem_id': 'large-integer-resolution',
+            'sense': 'minimize',
+            'num_variables': 1,
+            'variable_names': ['x'],
+            'offset': 10_000_000_000_000_000,
+            'terms': [[0, 0, -1]],
+            'metadata': {},
+        }
+
+        result = ExactQuboSolver().solve(problem)
+
+        self.assertEqual([1], result['best_sample'])
+        self.assertEqual(9_999_999_999_999_999, result['best_energy'])
+        self.assertIs(type(result['best_energy']), int)
+
+    def test_finite_coefficients_do_not_overflow_during_exact_comparison(self):
+        problem = {
+            'schema': 'qubo.v1',
+            'problem_id': 'large-finite-coefficients',
+            'sense': 'minimize',
+            'num_variables': 1,
+            'variable_names': ['x'],
+            'offset': 1e308,
+            'terms': [[0, 0, 1e308]],
+            'metadata': {},
+        }
+
+        result = ExactQuboSolver().solve(problem)
+
+        self.assertEqual([0], result['best_sample'])
+        self.assertEqual(int(1e308), result['best_energy'])
+
 
 if __name__ == '__main__':
     unittest.main()

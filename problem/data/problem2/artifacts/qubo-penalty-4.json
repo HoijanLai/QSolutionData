@@ -1,0 +1,46 @@
+{
+  "schema": "qubo.v1",
+  "problem_id": "select-one-example",
+  "sense": "minimize",
+  "num_variables": 2,
+  "variable_names": [
+    "asset_alpha",
+    "asset_beta"
+  ],
+  "offset": 4.0,
+  "terms": [
+    [
+      0,
+      0,
+      -6.0
+    ],
+    [
+      0,
+      1,
+      8.0
+    ],
+    [
+      1,
+      1,
+      -5.0
+    ]
+  ],
+  "metadata": {
+    "source_schema": "cbqm.v1",
+    "compiler": "quadratic_penalty.v1",
+    "original_variable_count": 2,
+    "free_variable_count": 2,
+    "slack_variable_count": 0,
+    "compiler_config": {
+      "strategy": "quadratic_penalty",
+      "default_penalty": 4.0,
+      "penalty_by_family": {},
+      "penalty_by_constraint": {},
+      "inequality_encoding": "binary_slack",
+      "constraint_precision": 8,
+      "rounding_tolerance": 1e-09,
+      "zero_tolerance": 1e-12,
+      "fixed_value_strategy": "eliminate"
+    }
+  }
+}

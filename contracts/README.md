@@ -33,6 +33,8 @@ versioned input/output schemas; it must not label a non-QUBO result as
 - `schemas/qubo.v1.schema.json`: canonical QUBO solver input.
 - `schemas/qubo-result.v1.schema.json`: canonical QUBO solver output.
 - `../lib/contracts/solver_protocol.py`: dependency-free runtime signature.
+- `../lib/contracts/validation.py`: strict runtime validation and cross-field
+  result checks.
 - `examples/`: mutually consistent minimal payloads.
 
 ## Shared conventions
@@ -47,6 +49,30 @@ versioned input/output schemas; it must not label a non-QUBO result as
   serialization.
 - Unknown fields are rejected at the defined structural levels. Extension data
   belongs in `metadata`.
+
+Python callers can apply the same boundary rules directly:
+
+```python
+from lib.contracts import (
+    validate_cbqm,
+    validate_qubo,
+    validate_qubo_result,
+)
+
+validate_cbqm(cbqm)
+validate_qubo(qubo)
+validate_qubo_result(qubo, result)
+```
+
+The runtime validators also reject Python-only JSON values, booleans used as
+binary integers, non-finite nested metadata, mismatched problem IDs, and
+reported energies that do not match their samples.
+
+Canonical QUBO energy recomputation first accumulates the JSON numeric values
+as exact rationals. Integral results remain JSON integers, so a large offset
+cannot erase a one-unit objective difference through an early binary64 cast.
+Reported energies must equal that canonical JSON-number result; a
+scale-dependent relative tolerance is deliberately not used.
 
 ## `cbqm.v1`
 
@@ -137,6 +163,13 @@ Statuses have the following meanings:
 - `timeout`: stopped by a time limit; a candidate may still be present.
 - `error`: the backend failed after accepting the input.
 - `unknown`: no stronger conclusion is available.
+
+The result validator confirms status/candidate consistency and recomputes the
+candidate energy, but a generic schema boundary cannot prove that an arbitrary
+solver exhausted its search space. Thus `status: optimal` remains the solver's
+attestation. Before turning that attestation into a persistent
+`ProblemCase.best_known.exact` lock, `solve_problem_task` independently
+enumerates the selected QUBO within its configured verification limit.
 
 `trace` is optional and ordered chronologically. It can preserve the
 breadcrumb/history idea used by Q-RBnBR without making tracing mandatory.

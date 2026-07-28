@@ -1,7 +1,13 @@
 import unittest
+from typing import is_typeddict
 
 from lib import QuboSolver, Solver
-from lib.contracts import QuboProblem, QuboResult
+from lib.contracts import (
+    QuboProblem,
+    QuboResult,
+    validate_qubo,
+    validate_qubo_result,
+)
 
 
 class SolverProtocolTests(unittest.TestCase):
@@ -13,6 +19,14 @@ class SolverProtocolTests(unittest.TestCase):
 
         self.assertEqual(QuboProblem, annotations['problem'])
         self.assertEqual(QuboResult, annotations['return'])
+
+    def test_qubo_contract_types_expose_field_aware_typed_dicts(self):
+        self.assertTrue(is_typeddict(QuboProblem))
+        self.assertTrue(is_typeddict(QuboResult))
+
+    def test_public_runtime_validators_are_exported(self):
+        self.assertTrue(callable(validate_qubo))
+        self.assertTrue(callable(validate_qubo_result))
 
 
 if __name__ == '__main__':

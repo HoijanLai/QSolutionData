@@ -49,11 +49,12 @@ interchangeable.
 
 ## Validation helpers
 
-`validation.py` is internal support for builders, compilers, and adapters. Its
-protected functions validate `cbqm.v1`, `qubo.v1`, sparse term conventions,
-indices, and finite coefficients. Solver implementations normally should not
-call these helpers directly; they should validate only the additional config
-and invariants specific to their algorithm.
+`lib.contracts` publicly exports `validate_cbqm`, `validate_qubo`, and
+`validate_qubo_result`. Builders, compilers, adapters, and solvers should call
+the applicable public validator at their input/output boundary, then validate
+only the additional configuration and invariants specific to their algorithm.
+The underscore-prefixed helpers inside `validation.py` remain implementation
+details and should not be called as public APIs.
 
 Authoritative serializable artifacts:
 

@@ -28,6 +28,18 @@ class _MissingCandidateSolver(BaseQuboSolver):
         return QuboSolveOutcome(status='optimal', best_sample=None)
 
 
+class _NonJsonOutcomeSolver(BaseQuboSolver):
+    SOLVER_NAME = 'non-json-outcome'
+    SOLVER_VERSION = '0.1.0'
+
+    def _run(self, problem, config):
+        return QuboSolveOutcome(
+            status='feasible',
+            best_sample=[0, 0],
+            metadata={'unsupported': object()},
+        )
+
+
 class BaseQuboSolverTests(unittest.TestCase):
     def setUp(self):
         self.problem = {
@@ -70,6 +82,10 @@ class BaseQuboSolverTests(unittest.TestCase):
     def test_requires_candidate_for_optimal_status(self):
         with self.assertRaisesRegex(ValueError, 'requires a best_sample'):
             _MissingCandidateSolver().solve(self.problem)
+
+    def test_validates_the_fully_constructed_public_result(self):
+        with self.assertRaisesRegex(TypeError, 'non-JSON value'):
+            _NonJsonOutcomeSolver().solve(self.problem)
 
 
 if __name__ == '__main__':
