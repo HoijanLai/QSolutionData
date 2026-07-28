@@ -1,0 +1,20 @@
+{
+  "schema": "qubo-result.v1",
+  "problem_id": "two-asset-example",
+  "solver": {
+    "name": "example-exact-solver",
+    "version": "1.0.0",
+    "backend": "local"
+  },
+  "status": "optimal",
+  "best_sample": [1, 0],
+  "best_energy": -2.0,
+  "runtime_seconds": 0.001,
+  "termination_reason": "search_exhausted",
+  "metrics": {"evaluated_samples": 4},
+  "trace": [
+    {"step": 0, "time_seconds": 0.0, "energy": 4.0, "sample": [0, 0]},
+    {"step": 1, "time_seconds": 0.0005, "energy": -2.0, "sample": [1, 0]}
+  ],
+  "metadata": {}
+}

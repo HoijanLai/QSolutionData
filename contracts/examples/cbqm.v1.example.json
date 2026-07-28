@@ -1,0 +1,25 @@
+{
+  "schema": "cbqm.v1",
+  "problem_id": "two-asset-example",
+  "variables": [
+    {"index": 0, "name": "asset_a", "vartype": "BINARY", "kind": "selection"},
+    {"index": 1, "name": "asset_b", "vartype": "BINARY", "kind": "selection"}
+  ],
+  "objective": {
+    "sense": "minimize",
+    "offset": 0.0,
+    "linear": [[0, -2.0], [1, -1.0]],
+    "quadratic": []
+  },
+  "constraints": [
+    {
+      "name": "select_one",
+      "family": "budget",
+      "linear": [[0, 1.0], [1, 1.0]],
+      "lower_bound": 1.0,
+      "upper_bound": 1.0
+    }
+  ],
+  "fixed_values": [],
+  "metadata": {"description": "Select exactly one of two assets."}
+}

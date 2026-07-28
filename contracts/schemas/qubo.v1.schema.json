@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:qsolutiondata:schema:qubo.v1",
+  "title": "Quadratic Unconstrained Binary Optimization v1",
+  "type": "object",
+  "required": ["schema", "problem_id", "sense", "num_variables", "variable_names", "offset", "terms"],
+  "properties": {
+    "schema": {"const": "qubo.v1"},
+    "problem_id": {"type": "string", "minLength": 1},
+    "sense": {"const": "minimize"},
+    "num_variables": {"type": "integer", "minimum": 0},
+    "variable_names": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "offset": {"type": "number"},
+    "terms": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {"type": "integer", "minimum": 0},
+          {"type": "integer", "minimum": 0},
+          {"type": "number"}
+        ],
+        "items": false,
+        "minItems": 3,
+        "maxItems": 3
+      }
+    },
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": false
+}
