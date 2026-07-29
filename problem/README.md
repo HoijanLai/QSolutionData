@@ -29,6 +29,8 @@ ProblemCase
 problem/
 ├── problem_def.py       # ProblemCase、artifact、task、best-known
 ├── reader.py            # UTF-8 JSON 读写和原子保存
+├── validation.py        # 整个 case/set 的深层只读体检
+├── __main__.py          # python -m problem 命令行入口
 ├── updater.py           # canonical objective/feasibility 与 best-known 更新
 ├── graph_codec.py       # NetworkX node-link JSON
 ├── transforms.py        # CBQM/QUBO 的可逆图表示与 signed MaxCut
@@ -193,5 +195,54 @@ all_cases = load_problem_set('problem/data')
 save_problem_case(case, 'problem/data/problem2')
 ```
 
-JSON 使用 UTF-8，禁止 NaN/Infinity；manifest 最后以原子替换方式写入。
-Artifact path 必须保持在所属 case 目录内。
+JSON 使用 UTF-8，禁止 NaN/Infinity、重复 object key 和未声明的 envelope
+字段；manifest 最后以原子替换方式写入。Artifact path 必须保持在所属 case
+目录内。
+
+## 整套问题集体检
+
+新增或修改案例后，可以从仓库根目录运行：
+
+```powershell
+python -m problem validate problem/data
+```
+
+相同能力也可以作为 Python API 使用：
+
+```python
+from problem import validate_problem_path
+
+report = validate_problem_path('problem/data')
+assert report.case_count > 0
+print(report.to_dict())
+```
+
+它不修改任何文件，并依次检查：
+
+- case manifest、artifact 路径、lineage、完整性 hash 和 task 引用；
+- `cbqm.v1`、`qubo.v1` 的完整数学契约；
+- 通用 NetworkX node-link 结构；
+- factor/interaction graph 的反向还原，并与直接父模型进行类型敏感比较；
+- signed MaxCut graph 是否能由内嵌 QUBO 重新生成，且与直接父 QUBO 一致；
+- 内置 CBQM/QUBO task 的 best-known witness、可行性和 objective。
+
+对 `exact=True`，体检会检查现有 witness 和可用的 provenance，但不会重新穷举
+证明全局最优；最优性升级仍由 `solve_problem_task()` 的独立复核流程负责。
+
+CI 可以读取单行 JSON：
+
+```powershell
+python -m problem validate problem/data --json
+```
+
+自定义 representation 仍然允许进入问题集，但会明确显示“语义未检查”警告。
+需要所有内容都有内置深层校验器时使用：
+
+```powershell
+python -m problem validate problem/data --strict
+```
+
+退出码 `0` 表示已支持的检查全部通过，`1` 表示数据/路径/语义错误，命令参数
+错误由 `argparse` 使用退出码 `2`。集合目录只发现直接子目录中的
+`*/case.json`；空目录以及同时包含根 `case.json` 和子 case 的歧义目录会被
+拒绝。

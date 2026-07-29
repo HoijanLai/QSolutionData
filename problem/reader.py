@@ -31,6 +31,44 @@ from .problem_def import (
 DEFAULT_CASE_FILENAME = 'case.json'
 DEFAULT_ARTIFACT_DIRECTORY = 'artifacts'
 
+_CASE_REQUIRED_FIELDS = {'schema', 'problem_id', 'artifacts'}
+_CASE_OPTIONAL_FIELDS = {
+    'primary_artifact_id',
+    'tasks',
+    'metadata',
+}
+_ARTIFACT_REQUIRED_FIELDS = {
+    'artifact_id',
+    'representation',
+    'path',
+}
+_ARTIFACT_OPTIONAL_FIELDS = {
+    'parent_artifact_id',
+    'transformation',
+    'metadata',
+}
+_TRANSFORMATION_REQUIRED_FIELDS = {'name', 'version', 'lossless'}
+_TRANSFORMATION_OPTIONAL_FIELDS = {'context'}
+_TASK_REQUIRED_FIELDS = {
+    'task_id',
+    'canonical_artifact_id',
+    'sense',
+}
+_TASK_OPTIONAL_FIELDS = {
+    'task_type',
+    'solution_representation',
+    'best_known',
+    'metadata',
+}
+_BEST_KNOWN_REQUIRED_FIELDS = {'objective_value'}
+_BEST_KNOWN_OPTIONAL_FIELDS = {
+    'solution',
+    'sample',
+    'exact',
+    'source',
+    'metadata',
+}
+
 
 def load_problem_case(path) -> ProblemCase:
     """Load one case from ``case.json`` or its containing directory."""
@@ -80,6 +118,12 @@ def case_from_dict(payload, *, base_directory) -> ProblemCase:
     """Build a validated case from a manifest and its artifact directory."""
     if not isinstance(payload, dict):
         raise TypeError('Problem case manifest must be a JSON object.')
+    _validate_object_fields(
+        payload,
+        required=_CASE_REQUIRED_FIELDS,
+        optional=_CASE_OPTIONAL_FIELDS,
+        label='case',
+    )
     if payload.get('schema') != PROBLEM_CASE_SCHEMA:
         raise ValueError(
             f"Problem case schema must be '{PROBLEM_CASE_SCHEMA}'."
@@ -132,6 +176,12 @@ def _artifact_from_descriptor(payload, base_directory):
     """Load one artifact descriptor and the payload it references."""
     if not isinstance(payload, dict):
         raise TypeError('Every artifact descriptor must be an object.')
+    _validate_object_fields(
+        payload,
+        required=_ARTIFACT_REQUIRED_FIELDS,
+        optional=_ARTIFACT_OPTIONAL_FIELDS,
+        label='artifact descriptor',
+    )
     relative_path = payload.get('path')
     artifact_path = _resolve_artifact_path(base_directory, relative_path)
     artifact_payload = _read_json(artifact_path)
@@ -175,6 +225,12 @@ def _transformation_from_dict(payload):
     """Parse one explicit transformation record."""
     if not isinstance(payload, dict):
         raise TypeError("artifact['transformation'] must be an object or null.")
+    _validate_object_fields(
+        payload,
+        required=_TRANSFORMATION_REQUIRED_FIELDS,
+        optional=_TRANSFORMATION_OPTIONAL_FIELDS,
+        label='transformation',
+    )
     context = payload.get('context', {})
     if not isinstance(context, dict):
         raise TypeError("transformation['context'] must be an object.")
@@ -202,6 +258,12 @@ def _task_from_dict(payload):
     """Parse one task and its optional task-scoped incumbent."""
     if not isinstance(payload, dict):
         raise TypeError('Every task must be an object.')
+    _validate_object_fields(
+        payload,
+        required=_TASK_REQUIRED_FIELDS,
+        optional=_TASK_OPTIONAL_FIELDS,
+        label='task',
+    )
     metadata = payload.get('metadata', {})
     if not isinstance(metadata, dict):
         raise TypeError("task['metadata'] must be an object.")
@@ -238,6 +300,20 @@ def _best_known_from_dict(payload):
         return None
     if not isinstance(payload, dict):
         raise TypeError("task['best_known'] must be an object or null.")
+    _validate_object_fields(
+        payload,
+        required=_BEST_KNOWN_REQUIRED_FIELDS,
+        optional=_BEST_KNOWN_OPTIONAL_FIELDS,
+        label='best_known',
+    )
+    if 'solution' not in payload and 'sample' not in payload:
+        raise ValueError(
+            "best_known must define 'solution' (or legacy 'sample')."
+        )
+    if 'solution' in payload and 'sample' in payload:
+        raise ValueError(
+            "best_known must not define both 'solution' and legacy 'sample'."
+        )
     metadata = payload.get('metadata', {})
     if not isinstance(metadata, dict):
         raise TypeError("best_known['metadata'] must be an object.")
@@ -310,12 +386,58 @@ def _read_json(path):
     """Read one UTF-8 JSON object with contextual parse errors."""
     try:
         with Path(path).open('r', encoding='utf-8') as stream:
-            payload = json.load(stream)
+            payload = json.load(
+                stream,
+                object_pairs_hook=_unique_json_object,
+                parse_constant=_reject_non_finite_json_constant,
+            )
     except json.JSONDecodeError as error:
+        raise ValueError(f'Invalid JSON in {path}: {error}') from error
+    except ValueError as error:
         raise ValueError(f'Invalid JSON in {path}: {error}') from error
     if not isinstance(payload, dict):
         raise TypeError(f'JSON file must contain an object: {path}')
     return payload
+
+
+def _unique_json_object(pairs):
+    """Build one JSON object while rejecting duplicate property names."""
+    output = {}
+    for key, value in pairs:
+        if key in output:
+            raise ValueError(f'Duplicate JSON object key {key!r}.')
+        output[key] = value
+    return output
+
+
+def _reject_non_finite_json_constant(value):
+    """Reject the non-standard NaN/Infinity extensions accepted by ``json``."""
+    raise ValueError(f'Non-finite JSON constant {value!r} is not allowed.')
+
+
+def _validate_object_fields(payload, *, required, optional, label):
+    """Keep persisted envelopes closed and explain missing/unknown fields."""
+    non_string_fields = [
+        field
+        for field in payload
+        if not isinstance(field, str)
+    ]
+    if non_string_fields:
+        rendered = ', '.join(repr(field) for field in non_string_fields)
+        raise TypeError(
+            f'{label} field names must be strings; got: {rendered}.'
+        )
+    fields = set(payload)
+    missing = sorted(required - fields)
+    if missing:
+        raise ValueError(
+            f'{label} is missing required fields: {", ".join(missing)}.'
+        )
+    unknown = sorted(fields - required - optional)
+    if unknown:
+        raise ValueError(
+            f'{label} contains unknown fields: {", ".join(unknown)}.'
+        )
 
 
 def _write_json_atomically(path, payload):

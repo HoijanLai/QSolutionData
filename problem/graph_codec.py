@@ -115,6 +115,20 @@ def _validate_json_node_ids(graph):
 
 def _validate_node_link_payload(payload, edge_field):
     """Reject identities NetworkX would otherwise merge while decoding."""
+    allowed_fields = {
+        'directed',
+        'multigraph',
+        'graph',
+        'nodes',
+        edge_field,
+    }
+    unknown_fields = sorted(set(payload) - allowed_fields)
+    if unknown_fields:
+        raise ValueError(
+            'Node-link payload contains unknown top-level fields: '
+            f'{", ".join(unknown_fields)}.'
+        )
+
     directed = payload.get('directed')
     multigraph = payload.get('multigraph')
     if type(directed) is not bool or type(multigraph) is not bool:

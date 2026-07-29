@@ -217,6 +217,16 @@ class GraphCodecTests(unittest.TestCase):
                 with self.assertRaisesRegex(TypeError, 'must be a mapping'):
                     graph_from_node_link(malformed)
 
+    def test_graph_codec_rejects_unknown_top_level_fields(self):
+        payload = graph_to_node_link(nx.Graph())
+        payload['egde_typo'] = []
+
+        with self.assertRaisesRegex(
+            ValueError,
+            'unknown top-level fields: egde_typo',
+        ):
+            graph_from_node_link(payload)
+
 
 class QuboInteractionGraphTests(unittest.TestCase):
     def test_rejects_schema_invalid_metadata_and_unknown_fields(self):

@@ -47,6 +47,13 @@ from .updater import (
     update_best_known,
     update_best_known_file,
 )
+from .validation import (
+    ProblemValidationError,
+    ProblemValidationReport,
+    validate_problem_case,
+    validate_problem_path,
+    validate_problem_set,
+)
 
 __all__ = [
     'PROBLEM_CASE_SCHEMA',
@@ -56,6 +63,8 @@ __all__ = [
     'ProblemArtifact',
     'ProblemCase',
     'ProblemSet',
+    'ProblemValidationError',
+    'ProblemValidationReport',
     'TaskDefinition',
     'TransformationRecord',
     'artifact_from_networkx',
@@ -85,4 +94,7 @@ __all__ = [
     'solve_problem_task',
     'update_best_known',
     'update_best_known_file',
+    'validate_problem_case',
+    'validate_problem_path',
+    'validate_problem_set',
 ]
