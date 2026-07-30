@@ -30,12 +30,13 @@ problem/
 ├── problem_def.py       # ProblemCase、artifact、task、best-known
 ├── reader.py            # UTF-8 JSON 读写和原子保存
 ├── validation.py        # 整个 case/set 的深层只读体检
+├── registries.py        # representation validator、task evaluator、native runner
 ├── __main__.py          # python -m problem 命令行入口
 ├── updater.py           # canonical objective/feasibility 与 best-known 更新
 ├── graph_codec.py       # NetworkX node-link JSON
 ├── transforms.py        # CBQM/QUBO 的可逆图表示与 signed MaxCut
 ├── case_operations.py   # 编译、派生、投影和 lineage 校验
-├── solving.py           # ProblemCase 到原生 QUBO solver 的执行桥
+├── solving.py           # 兼容 QUBO/compiled-CBQM 与直接 native solver 执行桥
 └── data/
     ├── problem1/
     └── problem2/
@@ -111,8 +112,8 @@ assert case.tasks == ()
 
 ## 运行 solver
 
-Solver 本身继续只消费 `qubo.v1`，不感知 `ProblemCase`。应用层通过
-`solve_problem_task()` 显式选择 task 和 QUBO artifact：
+具体 solver 只消费自己的原生表示，不感知 `ProblemCase`。旧的
+`solve_problem_task()` 保持为 QUBO 与 compiled-CBQM 的兼容入口：
 
 ```python
 from lib.solvers.qubo import ExactQuboSolver
@@ -134,21 +135,43 @@ print(record.canonical_objective_value)
 print(record.exact_for_task)
 ```
 
+直接求解 canonical CBQM 使用注册式原生入口：
+
+```python
+from lib.solvers.cbqm import ExactCbqmSolver
+from problem import solve_native_problem_task
+
+record = solve_native_problem_task(
+    case,
+    task_id='allocation',
+    artifact_id='cbqm',
+    solver=ExactCbqmSolver(),
+    config={'max_variables': 24},
+    update_best=True,
+    exact_verification_max_variables=24,
+)
+```
+
+`solve_native_problem_task()` 要求所选 artifact 就是 task 的 canonical
+artifact，并根据 representation registry 选择输入/result validator、候选解释和
+exact verifier。新增原生格式可分别注册 representation validator、task evaluator
+与 `NativeSolverRunner`，无需继续扩张中央 dispatch 分支。
+
 执行桥负责：
 
-- 在调用 solver 前严格验证 QUBO；
-- 隔离 problem/config，验证返回的 `qubo-result.v1`；
+- 在调用 solver 前按注册 representation 严格验证 canonical payload；
+- 隔离 problem/config，验证原生 result contract；
 - 保存 artifact hash、solver config、原始结果和 canonical 结果；
-- 将直接编译的 QUBO sample 投影回 CBQM，并重新验证可行性和原目标；
+- 在兼容 QUBO 路径中把直接编译的 sample 投影回 CBQM，并重验可行性和原目标；
 - 按请求更新对应 task 的 best-known。
 
-`qubo-result.v1` 的 `status='optimal'` 是 solver 的结论，不是通用结果校验器
-能够自行证明的事实。无论直接 QUBO 还是编译后的 CBQM，执行桥都要用精确数值
-重新枚举所选 QUBO，确认没有更优 assignment 后，才允许把结果写成 task 的
-`exact=True`。`exact_verification_max_variables` 是这次独立复核的规模上限；
+`qubo-result.v1` 或 `cbqm-result.v1` 的 `status='optimal'` 是 solver 的结论，
+不是通用结果校验器能够自行证明的事实。直接 QUBO/CBQM 路径会用精确数值重新
+枚举对应 canonical artifact，确认没有更优 assignment 后，才允许把结果写成
+task 的 `exact=True`。`exact_verification_max_variables` 是独立复核的规模上限；
 超过上限时仍可保留候选解，但会保守地保持非 exact。
 
-CBQM 的 exact 传播还需要额外的编译证明。只有以下条件全部成立才会设置
+编译为 QUBO 后求解的 CBQM 还需要额外的编译证明。只有以下条件全部成立才会设置
 `exact_for_task=True`：
 
 1. solver 返回 `status='optimal'`，且执行桥独立穷举所选 QUBO 后确认全局最优；
@@ -227,7 +250,7 @@ print(report.to_dict())
 - 内置 CBQM/QUBO task 的 best-known witness、可行性和 objective。
 
 对 `exact=True`，体检会检查现有 witness 和可用的 provenance，但不会重新穷举
-证明全局最优；最优性升级仍由 `solve_problem_task()` 的独立复核流程负责。
+证明全局最优；最优性升级由对应执行桥的独立复核流程负责。
 
 CI 可以读取单行 JSON：
 

@@ -42,23 +42,47 @@ solver: QuboSolver = MySolver()
 structural `Protocol`: inheritance is unnecessary. Matching the typed
 `solve(problem, config=None)` contract is sufficient.
 
-Future direct constrained-QAOA and MIS integrations should add their own
-versioned result schemas and specialized protocols instead of pretending to be
-`QuboSolver`. A common method name does not make different result semantics
+### CBQM specialization
+
+`CbqmSolver` binds the same generic call shape to:
+
+```text
+cbqm.v1 -> cbqm-result.v1
+```
+
+Its result reports the original objective and an independently recomputable
+feasibility summary. Native constrained solvers must not return
+`qubo-result.v1`, because penalty energy is not the business objective.
+
+Future MIS integrations should add their own versioned result and specialized
+protocol. A common method name does not make different result semantics
 interchangeable.
+
+## Sampler protocol
+
+`Sampler[ProblemT, SampleSetT]` defines:
+
+```python
+sample_set = sampler.sample(problem, config=None)
+```
+
+`BinarySampleSet` describes `binary-sample-set.v1`. One class may implement
+both `sample()` for an aggregated distribution and `solve()` for a standard
+best-candidate result. The existing `solve()` API does not need to change.
 
 ## Validation helpers
 
-`lib.contracts` publicly exports `validate_cbqm`, `validate_qubo`, and
-`validate_qubo_result`. Builders, compilers, adapters, and solvers should call
-the applicable public validator at their input/output boundary, then validate
-only the additional configuration and invariants specific to their algorithm.
-The underscore-prefixed helpers inside `validation.py` remain implementation
-details and should not be called as public APIs.
+`lib.contracts` publicly exports `validate_cbqm`, `validate_cbqm_result`,
+`validate_qubo`, `validate_qubo_result`, and
+`validate_binary_sample_set`. Builders, compilers, adapters, solvers, and
+samplers should call the applicable public validator at their boundary, then
+validate only algorithm-specific configuration and invariants.
 
 Authoritative serializable artifacts:
 
 - `contracts/schemas/cbqm.v1.schema.json`
+- `contracts/schemas/cbqm-result.v1.schema.json`
 - `contracts/schemas/qubo.v1.schema.json`
 - `contracts/schemas/qubo-result.v1.schema.json`
+- `contracts/schemas/binary-sample-set.v1.schema.json`
 - `contracts/examples/`

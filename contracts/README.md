@@ -1,11 +1,10 @@
 # Optimization interface contracts
 
 This directory contains the versioned boundaries between model construction,
-representation-specific compilation, solvers, and solver adapters. The JSON
-field names and numerical conventions in this directory are part of the public
-contract. The currently complete solver path is the QUBO path below.
+representation-specific compilation, solvers, samplers, and adapters. The JSON
+field names and numerical conventions in this directory are public contracts.
 
-## Implemented QUBO contract flow
+## Implemented contract flows
 
 ```text
 cbqm.v1
@@ -14,27 +13,38 @@ qubo.v1
   -> solver.solve(problem, config)
 qubo-result.v1
   -> decode(...)
+
+cbqm.v1
+  -> native solver.solve(problem, config)
+cbqm-result.v1
+
+binary problem
+  -> sampler.sample(problem, config)
+binary-sample-set.v1
 ```
 
 Backend-specific representations, including Qiskit `QuadraticProgram`,
 PennyLane Hamiltonians, and Q-RBnBR `MaxCutProblem`, sit behind adapters and
 must not change these contracts.
 
-This is the currently implemented QUBO path, not a restriction on all future
-solvers. The Python contract layer also exposes a representation-neutral
-`Solver[ProblemT, ResultT]` call shape. A solver that consumes `cbqm.v1`, an MIS
-graph, or an oracle specification directly must bind that shape to its own
-versioned input/output schemas; it must not label a non-QUBO result as
+These implemented paths are not a restriction on future solvers. The Python
+contract layer also exposes a representation-neutral
+`Solver[ProblemT, ResultT]` call shape. A solver that consumes an MIS graph or
+an oracle specification directly must bind that shape to its own versioned
+input/output schemas; it must not label a non-QUBO result as
 `qubo-result.v1`.
 
 ## Files
 
 - `schemas/cbqm.v1.schema.json`: constrained binary quadratic model.
+- `schemas/cbqm-result.v1.schema.json`: native constrained solver output.
 - `schemas/qubo.v1.schema.json`: canonical QUBO solver input.
 - `schemas/qubo-result.v1.schema.json`: canonical QUBO solver output.
+- `schemas/binary-sample-set.v1.schema.json`: aggregated binary distribution.
+- `../lib/contracts/cbqm_protocol.py`: typed native CBQM solver boundary.
+- `../lib/contracts/sampling_protocol.py`: generic sampler call shape.
 - `../lib/contracts/solver_protocol.py`: dependency-free runtime signature.
-- `../lib/contracts/validation.py`: strict runtime validation and cross-field
-  result checks.
+- `../lib/contracts/*_validation.py`: strict runtime and cross-field checks.
 - `examples/`: mutually consistent minimal payloads.
 
 ## Shared conventions
@@ -54,14 +64,18 @@ Python callers can apply the same boundary rules directly:
 
 ```python
 from lib.contracts import (
+    validate_binary_sample_set,
     validate_cbqm,
+    validate_cbqm_result,
     validate_qubo,
     validate_qubo_result,
 )
 
 validate_cbqm(cbqm)
+validate_cbqm_result(cbqm, cbqm_result)
 validate_qubo(qubo)
 validate_qubo_result(qubo, result)
+validate_binary_sample_set(sample_set)
 ```
 
 The runtime validators also reject Python-only JSON values, booleans used as
@@ -109,6 +123,26 @@ portfolio payload into this contract without adding constraint penalties.
 The reference compiler is `lib.compilers.compile_qubo`. It returns both a
 `qubo.v1` payload and `qubo-compilation-context.v1`; its penalty and numerical
 encoding choices are supplied explicitly by the caller.
+
+## `cbqm-result.v1`
+
+A native constrained solver reports the original CBQM objective separately
+from feasibility. A present candidate is an atomic triplet:
+
+```text
+best_sample + best_objective + feasibility
+```
+
+The runtime validator recomputes the original linear/quadratic objective, every
+fixed value, and every explicit lower/upper constraint. `optimal` and
+`feasible` require a feasible candidate. `infeasible` requires no candidate.
+`timeout`, `unknown`, and `error` may have no candidate; when they retain an
+infeasible observed sample, its violation list remains explicit.
+
+Optional bounds and proof evidence are solver attestations. In particular,
+`proof.independently_verified: false` is expected for a proof emitted by the
+solver itself. Persistent `ProblemCase.best_known.exact` promotion requires a
+separate verifier, certificate, or authoritative external registration.
 
 ## `qubo.v1`
 
@@ -173,6 +207,24 @@ enumerates the selected QUBO within its configured verification limit.
 
 `trace` is optional and ordered chronologically. It can preserve the
 breadcrumb/history idea used by Q-RBnBR without making tracing mandatory.
+
+## `binary-sample-set.v1`
+
+This artifact stores a full aggregated binary distribution without hiding it
+inside solver metadata or trace. Records contain only:
+
+```text
+sample + occurrences + optional metadata
+```
+
+They are unique and strictly lexicographically ordered. Empirical and exact
+distributions use a positive integer `shots`, and the occurrence total must
+equal it. A deterministic producer uses `shots: null`, exactly one record, and
+`occurrences: 1`.
+
+Objective or feasibility claims are deliberately absent. Consumers evaluate
+records against the canonical source problem. Large raw shot streams should
+remain external; repository artifacts store aggregated records or a manifest.
 
 ## Adapter boundary
 

@@ -21,13 +21,21 @@
    - 检查 `exact_for_task` 证据，并用弱 penalty 展示负例
    - 用额外 fixed-variable 微型案例验证非恒等投影与变量恢复
 
-3. `05_simulated_annealing_validation.ipynb`
+3. `03_cbqm_native_solver_validation.ipynb`
+   - 读取 canonical `cbqm.v1` 契约示例
+   - 用 `tests/oracles` 独立枚举原始可行域和 objective
+   - 直接运行 `ExactCbqmSolver` 并校验 `cbqm-result.v1`
+   - 检查 feasibility、bounds、optimality/infeasibility proof
+   - 通过 `solve_native_problem_task()` 验证独立 exact promotion
+   - notebook 不定义 solver、objective、feasibility 或穷举 helper
+
+4. `05_simulated_annealing_validation.ipynb`
    - 从 `problem.benchmarks` 加载 deterministic QUBO fixtures
    - 用 `tests/oracles` 与 `ExactQuboSolver` 建立独立对照
    - 验证 SA 的 `feasible` 语义、canonical energy 与固定 seed
    - 演示显式 custom beta schedule，不在 notebook 中实现退火逻辑
 
-`03` 和 `04` 编号预留给路线图中的 native CBQM 与 MIS 验证 notebook。
+`04` 编号预留给路线图中的 native MIS 验证 notebook。
 
 ## 运行
 

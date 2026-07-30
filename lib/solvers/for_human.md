@@ -20,9 +20,14 @@ def solve(problem, config=None):
 仍须使用自己的版本化输入、结果协议；相同的方法名不代表不同问题表示
 可以混用。
 
-当前只有 QUBO 路径拥有完整的输入和结果协议，即
-`qubo.v1 -> qubo-result.v1`。CBQM 和 MIS 子模块先建立清晰的代码归属，
-在各自结果 schema 与专用 Protocol 确定前不应放入生产 solver。
+当前 QUBO 与 CBQM 已拥有完整纵向协议：
+
+```text
+qubo.v1 -> qubo-result.v1
+cbqm.v1 -> cbqm-result.v1
+```
+
+MIS 仍应在自己的输入、结果 schema 与专用 Protocol 确定后再放入生产 solver。
 
 公共 wrapper 负责数据检查、配置解析、计时、主要逻辑分支和结果构造；
 计算、搜索、分支、松弛与 rounding 等元逻辑放在保护式命名函数中。这与
@@ -35,4 +40,3 @@ def solve(problem, config=None):
 - 直接接受图并求最大独立集：放入 `mis/`。
 - 只是做表示转换而不负责求解：放入 `lib/adapters/` 或
   `lib/compilers/`，不要放入 `solvers/`。
-
