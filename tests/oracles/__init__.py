@@ -10,11 +10,13 @@ from .cbqm import (
     evaluate_cbqm_objective,
     is_cbqm_feasible,
 )
+from .mis import enumerate_mis
 from .numbers import public_json_number
 from .qubo import enumerate_qubo, evaluate_qubo_energy
 
 __all__ = [
     'enumerate_cbqm_feasible',
+    'enumerate_mis',
     'enumerate_qubo',
     'evaluate_cbqm_objective',
     'evaluate_qubo_energy',
