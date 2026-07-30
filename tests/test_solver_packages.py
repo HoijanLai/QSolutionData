@@ -49,6 +49,7 @@ class SolverPackageTests(unittest.TestCase):
                 'ExactQuboSolver',
                 'QaoaQuboSolver',
                 'QuboSolveOutcome',
+                'SimulatedAnnealingQuboSolver',
             ],
             qubo.__all__,
         )
