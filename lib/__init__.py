@@ -34,6 +34,10 @@ _LAZY_EXPORTS = {
         '.portfolio',
         'client_profile',
     ),
+    'CbqmSolver': (
+        '.contracts',
+        'CbqmSolver',
+    ),
     'compile_qubo': (
         '.compilers',
         'compile_qubo',
@@ -92,6 +96,7 @@ __all__ = [
     'asset_similarity',
     'build_portfolio_cbqm',
     'client_profile',
+    'CbqmSolver',
     'compile_qubo',
     'portfolio_constraints',
     'prepare_qubo_inputs',

@@ -1,0 +1,49 @@
+{
+  "schema": "cbqm-result.v1",
+  "problem_id": "two-asset-example",
+  "solver": {
+    "name": "example-exact-cbqm-solver",
+    "version": "1.0.0",
+    "backend": "local"
+  },
+  "status": "optimal",
+  "best_sample": [1, 0],
+  "best_objective": -2.0,
+  "feasibility": {
+    "feasible": true,
+    "violated_count": 0,
+    "max_violation": 0.0,
+    "violations": []
+  },
+  "bounds": {
+    "primal_bound": -2.0,
+    "dual_bound": -2.0,
+    "absolute_gap": 0.0,
+    "relative_gap": 0.0
+  },
+  "proof": {
+    "claim": "optimality",
+    "kind": "exhaustive-enumeration",
+    "producer": "example-exact-cbqm-solver@1.0.0",
+    "independently_verified": false,
+    "details": {
+      "assignments_checked": 4,
+      "search_space_exhausted": true
+    }
+  },
+  "runtime_seconds": 0.001,
+  "termination_reason": "search_exhausted",
+  "metrics": {
+    "assignments_checked": 4
+  },
+  "trace": [
+    {
+      "step": 0,
+      "time_seconds": 0.0,
+      "sample": [1, 0],
+      "objective": -2.0,
+      "feasible": true
+    }
+  ],
+  "metadata": {}
+}
