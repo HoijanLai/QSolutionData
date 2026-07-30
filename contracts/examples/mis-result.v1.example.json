@@ -1,0 +1,46 @@
+{
+  "schema": "mis-result.v1",
+  "problem_id": "path-four-example",
+  "solver": {
+    "name": "example-exact-mis-solver",
+    "version": "1.0.0",
+    "backend": "local"
+  },
+  "status": "optimal",
+  "selected_vertices": [0, 2],
+  "objective_value": 2,
+  "cardinality": 2,
+  "total_weight": 2,
+  "feasible": true,
+  "bounds": {
+    "incumbent_lower_bound": 2,
+    "optimum_upper_bound": 2
+  },
+  "proof": {
+    "claim": "optimality",
+    "kind": "exhaustive-enumeration",
+    "producer": "example-exact-mis-solver@1.0.0",
+    "independently_verified": false,
+    "details": {
+      "assignments_checked": 16,
+      "search_space_exhausted": true
+    }
+  },
+  "runtime_seconds": 0.001,
+  "termination_reason": "search_exhausted",
+  "metrics": {
+    "assignments_checked": 16
+  },
+  "trace": [
+    {
+      "step": 0,
+      "time_seconds": 0,
+      "selected_vertices": [0, 2],
+      "objective_value": 2,
+      "cardinality": 2,
+      "total_weight": 2,
+      "feasible": true
+    }
+  ],
+  "metadata": {}
+}

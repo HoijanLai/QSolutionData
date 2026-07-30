@@ -1,0 +1,22 @@
+{
+  "schema": "mis.v1",
+  "problem_id": "path-four-example",
+  "objective": {
+    "kind": "maximum-cardinality"
+  },
+  "vertices": [
+    {"index": 0, "name": "a"},
+    {"index": 1, "name": "b"},
+    {"index": 2, "name": "c"},
+    {"index": 3, "name": "d"}
+  ],
+  "edges": [
+    [0, 1],
+    [1, 2],
+    [2, 3]
+  ],
+  "fixed_values": [],
+  "metadata": {
+    "description": "Maximum independent set on a four-vertex path."
+  }
+}

@@ -28,6 +28,22 @@ from .sampling_protocol import (
     SamplerIdentity,
 )
 from .sampling_validation import validate_binary_sample_set
+from .mis_protocol import (
+    MisBounds,
+    MisFixedValue,
+    MisObjective,
+    MisProblem,
+    MisResult,
+    MisSolver,
+    MisSolverIdentity,
+    MisTraceEntry,
+    MisVertex,
+)
+from .mis_validation import (
+    evaluate_mis_solution,
+    validate_mis,
+    validate_mis_result,
+)
 from .solver_protocol import (
     QuboProblem,
     QuboResult,
@@ -53,6 +69,15 @@ __all__ = [
     'ProofEvidence',
     'BinarySampleRecord',
     'BinarySampleSet',
+    'MisBounds',
+    'MisFixedValue',
+    'MisObjective',
+    'MisProblem',
+    'MisResult',
+    'MisSolver',
+    'MisSolverIdentity',
+    'MisTraceEntry',
+    'MisVertex',
     'QuboProblem',
     'QuboResult',
     'QuboSolver',
@@ -63,9 +88,12 @@ __all__ = [
     'SamplerIdentity',
     'evaluate_cbqm_feasibility',
     'evaluate_cbqm_objective',
+    'evaluate_mis_solution',
     'validate_cbqm',
     'validate_cbqm_result',
     'validate_binary_sample_set',
+    'validate_mis',
+    'validate_mis_result',
     'validate_qubo',
     'validate_qubo_result',
 ]

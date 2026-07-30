@@ -54,6 +54,10 @@ _LAZY_EXPORTS = {
         '.adapters',
         'QiskitQuadraticProgramAdapter',
     ),
+    'MisSolver': (
+        '.contracts',
+        'MisSolver',
+    ),
     'QuboSolver': (
         '.contracts',
         'QuboSolver',
@@ -105,6 +109,7 @@ __all__ = [
     'portfolio_constraints',
     'prepare_qubo_inputs',
     'QiskitQuadraticProgramAdapter',
+    'MisSolver',
     'QuboSolver',
     'QRBnBRMaxCutAdapter',
     'QRBnBRSolverAdapter',
