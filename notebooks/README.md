@@ -7,19 +7,27 @@
 
 1. `01_qubo_solver_validation.ipynb`
    - 手工构造并验证 `qubo.v1`
-   - 使用独立 `Fraction` 穷举建立 oracle
+   - 调用 `tests/oracles/` 中独立维护的 `Fraction` 穷举器
    - 对比 `ExactQuboSolver` 与 `QaoaQuboSolver`
    - 验证 `qubo-result.v1`、输入不可变性和固定 seed 重复性
    - 演示坏 QUBO 与被篡改 result 如何在契约边界被拒绝
 
 2. `02_cbqm_solver_validation.ipynb`
    - 手工构造并验证 `cbqm.v1`
-   - 独立枚举原始可行域和 objective
+   - 调用 `tests/oracles/` 独立枚举原始可行域和 objective
    - 建立 `ProblemCase` 并编译出 `qubo.v1`
    - 独立枚举派生 QUBO，确认本例 penalty 足够
    - 运行 Exact/QAOA，再投影回 CBQM 检查可行性与 canonical objective
    - 检查 `exact_for_task` 证据，并用弱 penalty 展示负例
    - 用额外 fixed-variable 微型案例验证非恒等投影与变量恢复
+
+3. `05_simulated_annealing_validation.ipynb`
+   - 从 `problem.benchmarks` 加载 deterministic QUBO fixtures
+   - 用 `tests/oracles` 与 `ExactQuboSolver` 建立独立对照
+   - 验证 SA 的 `feasible` 语义、canonical energy 与固定 seed
+   - 演示显式 custom beta schedule，不在 notebook 中实现退火逻辑
+
+`03` 和 `04` 编号预留给路线图中的 native CBQM 与 MIS 验证 notebook。
 
 ## 运行
 
@@ -27,9 +35,12 @@
 然后点击 **Run All**。第一个 code cell 会自动向上寻找同时包含 `lib/` 与
 `problem/` 的仓库根目录，不需要硬编码本机路径。
 
-两本 notebook 都保持无输出状态提交，避免 runtime、随机实验输出和本地路径
-污染 Git diff。当前版本已使用 `taiyiq-playground` kernel（指向项目 `.venv`）
-逐 cell 执行通过。
+所有 notebook 都保持无输出状态提交，避免 runtime、随机实验输出和本地路径
+污染 Git diff。当前版本已使用项目 Python 3.11 `.venv` kernel 逐 cell 执行
+通过；kernelspec 的显示名称不作为验证依据。
+
+独立 oracle 的实现统一放在 `tests/oracles/`。Notebook 不定义 objective、
+feasibility、穷举或算法 helper，只负责导入、调用、展示与简单断言。
 
 ## 使用边界
 

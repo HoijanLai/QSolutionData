@@ -68,6 +68,13 @@ class MyQuboSolver:
         ...
 ```
 
+当前参考实现包括：
+
+- `ExactQuboSolver`：小规模穷举，搜索耗尽后可以声明 `optimal`。
+- `QaoaQuboSolver`：NumPy statevector QAOA，返回启发式 `feasible`。
+- `SimulatedAnnealingQuboSolver`：NumPy Metropolis 退火，正常完成返回
+  `feasible`，deadline 返回 `timeout`，永不自行声明 `optimal`。
+
 ## QUBO 能量约定
 
 Solver 要最小化：
@@ -136,6 +143,7 @@ lib/solvers/qubo/
 ├── for_human.md
 ├── exact.py
 ├── qaoa.py
+├── simulated_annealing.py
 ├── your_solver.py
 └── _utils.py
 ```
