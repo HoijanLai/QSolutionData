@@ -238,6 +238,39 @@ def _evaluate_cbqm_feasibility(problem, sample):
     }
 
 
+def _is_cbqm_feasible_exact(problem, sample):
+    """Test the constrained domain without materializing public JSON numbers.
+
+    Exact search calls this helper for every assignment.  Keeping the predicate
+    on :class:`Fraction` values avoids both repeated result allocation and an
+    intermediate overflow when a rejected assignment has a very large
+    constraint activity that never needs to cross the JSON boundary.
+    """
+    for fixed in problem['fixed_values']:
+        if sample[fixed['index']] != fixed['value']:
+            return False
+
+    for constraint in problem['constraints']:
+        activity = sum(
+            (
+                Fraction(coefficient) * sample[index]
+                for index, coefficient in constraint['linear']
+            ),
+            start=Fraction(0),
+        )
+        if (
+            'lower_bound' in constraint
+            and activity < Fraction(constraint['lower_bound'])
+        ):
+            return False
+        if (
+            'upper_bound' in constraint
+            and activity > Fraction(constraint['upper_bound'])
+        ):
+            return False
+    return True
+
+
 def _public_violation(violation):
     """Convert one exact internal violation to finite JSON numbers."""
     output = {
