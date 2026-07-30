@@ -20,6 +20,10 @@ from .problem_def import (
     ProblemCase,
 )
 from .reader import load_problem_case, save_problem_case
+from .registries import (
+    _task_evaluator_for,
+    register_task_evaluator,
+)
 
 
 @dataclass(frozen=True)
@@ -200,19 +204,26 @@ def _evaluate_candidate(artifact, solution, task, evaluator):
         _validate_finite_objective(value, 'custom evaluator result')
         return value
 
-    if task.solution_representation != 'binary-vector.v1':
-        raise NotImplementedError(
-            f"No built-in evaluator for solution representation "
-            f"'{task.solution_representation}'."
-        )
-    if artifact.representation == 'qubo.v1':
-        return _evaluate_qubo(artifact.payload, solution)
-    if artifact.representation == 'cbqm.v1':
-        return _evaluate_cbqm(artifact.payload, solution)
-    raise NotImplementedError(
-        f"No built-in evaluator for artifact representation "
-        f"'{artifact.representation}'; pass evaluator= explicitly."
+    registered = _task_evaluator_for(
+        artifact.representation,
+        task.solution_representation,
     )
+    if registered is not None:
+        value = registered(artifact, solution, task)
+        _validate_finite_objective(value, 'registered evaluator result')
+        return value
+
+    raise NotImplementedError(
+        'No built-in evaluator is registered for artifact/solution pair '
+        f"'{artifact.representation}' / "
+        f"'{task.solution_representation}'; pass evaluator= explicitly."
+    )
+
+
+def _evaluate_qubo_task(artifact, solution, task):
+    """Adapt the binary-vector QUBO evaluator to the registry signature."""
+    del task
+    return _evaluate_qubo(artifact.payload, solution)
 
 
 def _evaluate_qubo(problem, solution):
@@ -225,60 +236,69 @@ def _evaluate_qubo(problem, solution):
     return evaluate_qubo(problem, sample)
 
 
+def _evaluate_cbqm_task(artifact, solution, task):
+    """Adapt the feasible CBQM evaluator to the registry signature."""
+    del task
+    return _evaluate_cbqm(artifact.payload, solution)
+
+
 def _evaluate_cbqm(problem, solution):
     """Validate CBQM feasibility, then evaluate its original objective."""
-    from lib.contracts import validate_cbqm
-    from lib.contracts.validation import _fraction_to_json_number
+    from lib.contracts import (
+        evaluate_cbqm_feasibility,
+        evaluate_cbqm_objective,
+        validate_cbqm,
+    )
 
     validate_cbqm(problem)
-    variables = problem['variables']
-    sample = _validate_binary_sample(solution, len(variables))
+    sample = _validate_binary_sample(solution, len(problem['variables']))
+    feasibility = evaluate_cbqm_feasibility(problem, sample)
+    if not feasibility['feasible']:
+        _raise_cbqm_violation(feasibility['violations'][0])
+    return evaluate_cbqm_objective(problem, sample)
 
-    for fixed in problem.get('fixed_values', []):
-        index = fixed['index']
-        if sample[index] != fixed['value']:
-            raise ValueError(
-                f"Candidate violates fixed value for variable index {index}."
-            )
 
-    for constraint in problem.get('constraints', []):
-        activity = sum(
-            (
-                Fraction(coefficient) * sample[index]
-                for index, coefficient in constraint['linear']
-            ),
-            start=Fraction(0),
+def _raise_cbqm_violation(violation):
+    """Translate a canonical violation into the updater's stable diagnostic."""
+    name = violation['constraint_name']
+    if name.startswith('fixed:'):
+        raise ValueError(
+            f"Candidate violates fixed value for variable '{name[6:]}'."
         )
-        lower = constraint.get('lower_bound')
-        upper = constraint.get('upper_bound')
-        if lower is not None and activity < Fraction(lower):
-            raise ValueError(
-                f"Candidate violates lower bound of constraint "
-                f"'{constraint['name']}'."
-            )
-        if upper is not None and activity > Fraction(upper):
-            raise ValueError(
-                f"Candidate violates upper bound of constraint "
-                f"'{constraint['name']}'."
-            )
-
-    return _fraction_to_json_number(
-        _evaluate_cbqm_objective_exact(problem, sample),
-        'CBQM objective',
+    if (
+        'lower_bound' in violation
+        and Fraction(violation['activity'])
+        < Fraction(violation['lower_bound'])
+    ):
+        raise ValueError(
+            f"Candidate violates lower bound of constraint '{name}'."
+        )
+    raise ValueError(
+        f"Candidate violates upper bound of constraint '{name}'."
     )
 
 
 def _evaluate_cbqm_objective_exact(problem, sample):
     """Evaluate a validated CBQM objective as an exact JSON-number rational."""
-    objective = problem['objective']
-    value = Fraction(objective['offset'])
-    for index, coefficient in objective['linear']:
-        if sample[index]:
-            value += Fraction(coefficient)
-    for left, right, coefficient in objective['quadratic']:
-        if sample[left] and sample[right]:
-            value += Fraction(coefficient)
-    return value
+    from lib.contracts.cbqm_validation import (
+        _evaluate_cbqm_objective_exact as evaluate_exact,
+    )
+
+    return evaluate_exact(problem, sample)
+
+
+def _has_registered_task_evaluator(
+    artifact_representation,
+    solution_representation,
+):
+    """Report whether the registry can independently evaluate a task pair."""
+    return (
+        _task_evaluator_for(
+            artifact_representation,
+            solution_representation,
+        )
+        is not None
+    )
 
 
 def _validate_binary_sample(solution, variable_count):
@@ -410,3 +430,20 @@ def _validate_finite_objective(value, label):
         return
     if type(value) is not float or not math.isfinite(value):
         raise TypeError(f'{label} must be a finite real number.')
+
+
+def _register_builtin_task_evaluators():
+    """Install the two canonical binary-vector objective evaluators."""
+    register_task_evaluator(
+        'qubo.v1',
+        'binary-vector.v1',
+        _evaluate_qubo_task,
+    )
+    register_task_evaluator(
+        'cbqm.v1',
+        'binary-vector.v1',
+        _evaluate_cbqm_task,
+    )
+
+
+_register_builtin_task_evaluators()

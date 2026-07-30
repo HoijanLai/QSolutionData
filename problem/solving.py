@@ -32,6 +32,11 @@ from .case_operations import (
     project_qubo_sample_to_cbqm,
 )
 from .problem_def import BestKnownSolution, ProblemCase
+from .registries import (
+    NativeSolverRunner,
+    _native_solver_runner_for,
+    register_native_solver_runner,
+)
 from .updater import (
     BestKnownUpdate,
     _evaluate_cbqm_objective_exact,
@@ -216,6 +221,147 @@ def solve_problem_task(
     )
 
 
+def solve_native_problem_task(
+    case,
+    task_id,
+    artifact_id,
+    solver,
+    config=None,
+    *,
+    update_best=False,
+    allow_exact_override=False,
+    exact_verification_max_variables=(
+        DEFAULT_EXACT_VERIFICATION_MAX_VARIABLES
+    ),
+) -> CaseSolveRecord:
+    """Solve a task directly on its registered canonical representation.
+
+    Unlike :func:`solve_problem_task`, this entry point does not perform a
+    representation transform.  The selected artifact must be the task's
+    canonical artifact, and its representation must have a native runner
+    registered.  This makes CBQM-native execution possible while leaving the
+    established QUBO/compiled-CBQM compatibility workflow untouched.
+    """
+    task, artifact, runner = _resolve_native_execution_route(
+        case,
+        task_id,
+        artifact_id,
+    )
+    _validate_execution_options(
+        solver,
+        config,
+        update_best,
+        allow_exact_override,
+        exact_verification_max_variables,
+    )
+    normalized_config = _normalize_solver_config(config)
+
+    result = runner.run_and_validate(
+        artifact.payload,
+        solver,
+        normalized_config,
+    )
+    candidate = _interpret_native_candidate(
+        case,
+        task,
+        artifact,
+        runner,
+        result,
+        exact_verification_max_variables,
+    )
+    update, resulting_case = _apply_requested_update(
+        case,
+        task,
+        artifact,
+        result,
+        candidate,
+        normalized_config,
+        update_best=update_best,
+        allow_exact_override=allow_exact_override,
+    )
+
+    return CaseSolveRecord(
+        problem_id=case.problem_id,
+        task_id=task.task_id,
+        artifact_id=artifact.artifact_id,
+        payload_sha256=_payload_sha256(artifact.payload),
+        solver_config=normalized_config,
+        raw_result=result,
+        canonical_solution=(
+            None if candidate is None else candidate.solution
+        ),
+        canonical_objective_value=(
+            None if candidate is None else candidate.objective_value
+        ),
+        exact_for_task=(
+            False if candidate is None else candidate.exact
+        ),
+        update=update,
+        case=resulting_case,
+    )
+
+
+def _resolve_native_execution_route(case, task_id, artifact_id):
+    """Resolve one direct task/artifact pair and its registered runner."""
+    if not isinstance(case, ProblemCase):
+        raise TypeError('case must be a ProblemCase.')
+    if not isinstance(task_id, str) or not task_id:
+        raise ValueError('task_id must be a non-empty string.')
+    if not isinstance(artifact_id, str) or not artifact_id:
+        raise ValueError('artifact_id must be a non-empty string.')
+
+    task = case.get_task(task_id)
+    artifact = case.get_artifact(artifact_id)
+    if task.canonical_artifact_id != artifact.artifact_id:
+        raise ValueError(
+            'Native execution requires artifact_id to equal the selected '
+            "task's canonical_artifact_id."
+        )
+
+    runner = _native_solver_runner_for(artifact.representation)
+    if runner is None:
+        raise ValueError(
+            'No native solver runner is registered for representation '
+            f"'{artifact.representation}'."
+        )
+    return task, artifact, runner
+
+
+def _interpret_native_candidate(
+    case,
+    task,
+    artifact,
+    runner,
+    result,
+    exact_verification_max_variables,
+):
+    """Evaluate a native feasible incumbent in the canonical task vocabulary."""
+    solution = runner.candidate_from_result(result)
+    if solution is None:
+        return None
+
+    objective = evaluate_task_solution(
+        case,
+        task.task_id,
+        solution,
+    )
+    exact, evidence = runner.verify_exact(
+        artifact.payload,
+        solution,
+        result,
+        exact_verification_max_variables,
+    )
+    return _CanonicalCandidate(
+        solution=solution,
+        objective_value=objective,
+        exact=exact,
+        exactness_metadata={
+            'route': runner.route_kind,
+            **evidence,
+        },
+    )
+
+
 def _resolve_execution_route(case, task_id, artifact_id):
     """Validate all representation choices before starting expensive work."""
     if not isinstance(case, ProblemCase):
@@ -285,7 +431,15 @@ def _validate_execution_options(
 
 
 def _run_and_validate_solver(payload, solver, config):
-    """Call only the native payload boundary, then distrust the returned dict."""
+    """Compatibility wrapper routed through the registered QUBO adapter."""
+    runner = _native_solver_runner_for('qubo.v1')
+    if runner is None:
+        raise RuntimeError('The built-in QUBO runner is not registered.')
+    return runner.run_and_validate(payload, solver, config)
+
+
+def _run_and_validate_qubo_solver(payload, solver, config):
+    """Call a QUBO solver, then distrust and validate its returned document."""
     # Keep basic ProblemCase reading independent from the solver package.  The
     # contract module is needed only when execution is actually requested.
     from lib.contracts import validate_qubo, validate_qubo_result
@@ -306,6 +460,44 @@ def _run_and_validate_solver(payload, solver, config):
         result=result,
     )
     return _mutable_json_copy(result)
+
+
+def _run_and_validate_cbqm_solver(payload, solver, config):
+    """Call a CBQM solver, then recompute its complete result semantics."""
+    from lib.contracts import validate_cbqm, validate_cbqm_result
+
+    validate_cbqm(payload)
+    solver_payload = _mutable_json_copy(payload)
+    solver_config = (
+        None
+        if config is None
+        else _mutable_json_copy(config)
+    )
+    result = solver.solve(solver_payload, solver_config)
+    validate_cbqm_result(
+        problem=payload,
+        result=result,
+    )
+    return _mutable_json_copy(result)
+
+
+def _qubo_candidate_from_result(result):
+    """Extract the optional binary incumbent from a valid QUBO result."""
+    sample = result['best_sample']
+    return None if sample is None else list(sample)
+
+
+def _cbqm_candidate_from_result(result):
+    """Expose only a feasible CBQM candidate to best-known update policy."""
+    sample = result['best_sample']
+    feasibility = result['feasibility']
+    if (
+        sample is None
+        or feasibility is None
+        or not feasibility['feasible']
+    ):
+        return None
+    return list(sample)
 
 
 def _interpret_candidate(
@@ -513,6 +705,96 @@ def _independently_verify_qubo_optimality(
         'optimality_verification_reason': 'search_space_exhausted',
     })
     return True, evidence
+
+
+def _verify_native_qubo_exactness(problem, sample, result, max_variables):
+    """Adapt the existing direct-QUBO verifier to the runner registry."""
+    return _independently_verify_qubo_optimality(
+        problem,
+        sample,
+        result['status'],
+        max_variables,
+    )
+
+
+def _independently_verify_cbqm_optimality(
+    problem,
+    sample,
+    status,
+    max_variables,
+):
+    """Verify a native CBQM optimum against the original feasible domain."""
+    from lib.contracts.cbqm_validation import (
+        _evaluate_cbqm_objective_exact,
+        _is_cbqm_feasible_exact,
+    )
+
+    evidence = {
+        'solver_reported_optimal': status == 'optimal',
+        'independent_cbqm_optimality_verified': False,
+        'optimality_verification_method': None,
+        'optimality_verification_max_variables': max_variables,
+        'optimality_assignments_checked': 0,
+        'feasible_assignments_checked': 0,
+    }
+    if status != 'optimal':
+        evidence['optimality_verification_reason'] = (
+            'solver_did_not_report_optimal'
+        )
+        return False, evidence
+
+    variable_count = len(problem['variables'])
+    if variable_count > max_variables:
+        evidence['optimality_verification_reason'] = (
+            'variable_limit_exceeded'
+        )
+        return False, evidence
+
+    candidate_objective = _evaluate_cbqm_objective_exact(problem, sample)
+    checked = 0
+    feasible_checked = 0
+    sense = problem['objective']['sense']
+
+    for assignment in itertools.product((0, 1), repeat=variable_count):
+        checked += 1
+        assignment = list(assignment)
+        if not _is_cbqm_feasible_exact(problem, assignment):
+            continue
+        feasible_checked += 1
+        objective = _evaluate_cbqm_objective_exact(problem, assignment)
+        is_better = (
+            objective < candidate_objective
+            if sense == 'minimize'
+            else objective > candidate_objective
+        )
+        if is_better:
+            evidence.update({
+                'optimality_assignments_checked': checked,
+                'feasible_assignments_checked': feasible_checked,
+                'optimality_verification_reason': (
+                    'better_assignment_found'
+                ),
+            })
+            return False, evidence
+
+    evidence.update({
+        'independent_cbqm_optimality_verified': True,
+        'optimality_verification_method': 'exhaustive-cbqm-enumeration',
+        'optimality_assignments_checked': checked,
+        'feasible_assignments_checked': feasible_checked,
+        'optimality_verification_reason': 'search_space_exhausted',
+    })
+    return True, evidence
+
+
+def _verify_native_cbqm_exactness(problem, sample, result, max_variables):
+    """Adapt native CBQM exact verification to the runner registry."""
+    return _independently_verify_cbqm_optimality(
+        problem,
+        sample,
+        result['status'],
+        max_variables,
+    )
 
 
 def _evaluate_qubo_energy_exact(problem, sample):
@@ -824,3 +1106,28 @@ def _payload_sha256(payload):
         allow_nan=False,
     ).encode('utf-8')
     return hashlib.sha256(serialized).hexdigest()
+
+
+def _register_builtin_native_solver_runners():
+    """Install direct QUBO and CBQM execution as registry components."""
+    register_native_solver_runner(
+        'qubo.v1',
+        NativeSolverRunner(
+            run_and_validate=_run_and_validate_qubo_solver,
+            candidate_from_result=_qubo_candidate_from_result,
+            verify_exact=_verify_native_qubo_exactness,
+            route_kind='direct_qubo',
+        ),
+    )
+    register_native_solver_runner(
+        'cbqm.v1',
+        NativeSolverRunner(
+            run_and_validate=_run_and_validate_cbqm_solver,
+            candidate_from_result=_cbqm_candidate_from_result,
+            verify_exact=_verify_native_cbqm_exactness,
+            route_kind='direct_cbqm',
+        ),
+    )
+
+
+_register_builtin_native_solver_runners()

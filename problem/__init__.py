@@ -33,7 +33,18 @@ from .reader import (
     save_problem,
     save_problem_case,
 )
-from .solving import CaseSolveRecord, solve_problem_task
+from .registries import (
+    NativeSolverRunner,
+    register_native_solver_runner,
+    register_representation_validator,
+    register_task_evaluator,
+    registered_problem_components,
+)
+from .solving import (
+    CaseSolveRecord,
+    solve_native_problem_task,
+    solve_problem_task,
+)
 from .transforms import (
     cbqm_to_factor_graph,
     factor_graph_to_cbqm,
@@ -60,6 +71,7 @@ __all__ = [
     'BestKnownSolution',
     'BestKnownUpdate',
     'CaseSolveRecord',
+    'NativeSolverRunner',
     'ProblemArtifact',
     'ProblemCase',
     'ProblemSet',
@@ -89,8 +101,13 @@ __all__ = [
     'project_qubo_sample_to_cbqm',
     'qubo_to_interaction_graph',
     'qubo_to_maxcut_graph',
+    'register_native_solver_runner',
+    'register_representation_validator',
+    'register_task_evaluator',
+    'registered_problem_components',
     'save_problem',
     'save_problem_case',
+    'solve_native_problem_task',
     'solve_problem_task',
     'update_best_known',
     'update_best_known_file',

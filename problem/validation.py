@@ -35,6 +35,10 @@ from .problem_def import (
     TaskDefinition,
 )
 from .reader import DEFAULT_CASE_FILENAME, load_problem_case
+from .registries import (
+    _representation_validator_for,
+    register_representation_validator,
+)
 from .transforms import (
     CBQM_FACTOR_REPRESENTATION,
     QUBO_INTERACTION_REPRESENTATION,
@@ -43,7 +47,10 @@ from .transforms import (
     interaction_graph_to_qubo,
     qubo_to_maxcut_graph,
 )
-from .updater import update_best_known
+from .updater import (
+    _has_registered_task_evaluator,
+    update_best_known,
+)
 
 
 class ProblemValidationError(ValueError):
@@ -217,40 +224,59 @@ def _validate_artifact_with_context(problem_case, artifact):
 
 def _validate_artifact(problem_case, artifact):
     """Return whether this package owns a deep checker for ``artifact``."""
-    if artifact.representation == 'cbqm.v1':
-        validate_cbqm(artifact.payload)
+    validator = _representation_validator_for(artifact.representation)
+    if validator is not None:
+        validator(problem_case, artifact)
         return True
-    if artifact.representation == 'qubo.v1':
-        validate_qubo(artifact.payload)
-        return True
-    if artifact.representation == CBQM_FACTOR_REPRESENTATION:
-        restored = factor_graph_to_cbqm(artifact)
-        _validate_model_parent(
-            problem_case,
-            artifact,
-            'cbqm.v1',
-            restored,
-        )
-        return True
-    if artifact.representation == QUBO_INTERACTION_REPRESENTATION:
-        restored = interaction_graph_to_qubo(artifact)
-        _validate_model_parent(
-            problem_case,
-            artifact,
-            'qubo.v1',
-            restored,
-        )
-        return True
-    if artifact.representation == QUBO_MAXCUT_REPRESENTATION:
-        _validate_qubo_maxcut_artifact(problem_case, artifact)
-        return True
+
     if artifact.representation.startswith('networkx.'):
         artifact_to_networkx(artifact)
-        # The generic representation promises only node-link structure. A
-        # project-specific ``networkx.*`` name may imply extra semantics that
-        # this registry does not know, so it remains an explicit warning.
-        return artifact.representation == 'networkx.node-link.v1'
+        # An unregistered project-specific ``networkx.*`` name may imply
+        # semantics beyond node-link shape. Parsing it is useful diagnostics,
+        # but it remains unchecked until that representation registers its
+        # own authoritative validator.
+        return False
     return False
+
+
+def _validate_cbqm_artifact(problem_case, artifact):
+    """Run the authoritative closed CBQM wire-contract validator."""
+    del problem_case
+    validate_cbqm(artifact.payload)
+
+
+def _validate_qubo_artifact(problem_case, artifact):
+    """Run the authoritative closed QUBO wire-contract validator."""
+    del problem_case
+    validate_qubo(artifact.payload)
+
+
+def _validate_node_link_artifact(problem_case, artifact):
+    """Validate the one generic NetworkX representation's promised shape."""
+    del problem_case
+    artifact_to_networkx(artifact)
+
+
+def _validate_cbqm_factor_artifact(problem_case, artifact):
+    """Reverse the factor graph and tie it to its canonical CBQM parent."""
+    restored = factor_graph_to_cbqm(artifact)
+    _validate_model_parent(
+        problem_case,
+        artifact,
+        'cbqm.v1',
+        restored,
+    )
+
+
+def _validate_qubo_interaction_artifact(problem_case, artifact):
+    """Reverse the interaction graph and tie it to its QUBO parent."""
+    restored = interaction_graph_to_qubo(artifact)
+    _validate_model_parent(
+        problem_case,
+        artifact,
+        'qubo.v1',
+        restored,
+    )
 
 
 def _validate_qubo_maxcut_artifact(problem_case, artifact):
@@ -394,11 +420,11 @@ def _validate_best_known_with_context(problem_case, task):
 
 
 def _has_builtin_evaluator(problem_case, task):
-    """Mirror the updater's intentionally small built-in evaluator domain."""
+    """Ask the same evaluator registry used by the updater."""
     artifact = problem_case.get_artifact(task.canonical_artifact_id)
-    return (
-        task.solution_representation == 'binary-vector.v1'
-        and artifact.representation in {'cbqm.v1', 'qubo.v1'}
+    return _has_registered_task_evaluator(
+        artifact.representation,
+        task.solution_representation,
     )
 
 
@@ -541,3 +567,23 @@ def _require_strict_flag(strict):
     """Avoid treating truthy integers or strings as a policy decision."""
     if type(strict) is not bool:
         raise TypeError('strict must be a boolean.')
+
+
+def _register_builtin_representation_validators():
+    """Install authoritative validators without hard-coded dispatch branches."""
+    registrations = (
+        ('cbqm.v1', _validate_cbqm_artifact),
+        ('qubo.v1', _validate_qubo_artifact),
+        ('networkx.node-link.v1', _validate_node_link_artifact),
+        (CBQM_FACTOR_REPRESENTATION, _validate_cbqm_factor_artifact),
+        (
+            QUBO_INTERACTION_REPRESENTATION,
+            _validate_qubo_interaction_artifact,
+        ),
+        (QUBO_MAXCUT_REPRESENTATION, _validate_qubo_maxcut_artifact),
+    )
+    for representation, validator in registrations:
+        register_representation_validator(representation, validator)
+
+
+_register_builtin_representation_validators()
