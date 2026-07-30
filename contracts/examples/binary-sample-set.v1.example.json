@@ -1,0 +1,35 @@
+{
+  "schema": "binary-sample-set.v1",
+  "problem_id": "two-asset-example",
+  "sample_representation": "binary-vector.v1",
+  "variable_count": 2,
+  "distribution_kind": "empirical",
+  "shots": 100,
+  "records": [
+    {
+      "sample": [0, 0],
+      "occurrences": 10
+    },
+    {
+      "sample": [0, 1],
+      "occurrences": 30
+    },
+    {
+      "sample": [1, 0],
+      "occurrences": 60,
+      "metadata": {
+        "feasible_hint": true
+      }
+    }
+  ],
+  "sampler": {
+    "name": "example-binary-sampler",
+    "version": "1.0.0",
+    "backend": "local"
+  },
+  "seed": 7,
+  "runtime_seconds": 0.01,
+  "metadata": {
+    "purpose": "contract example; objectives must be recomputed by consumers"
+  }
+}

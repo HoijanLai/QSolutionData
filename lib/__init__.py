@@ -58,6 +58,10 @@ _LAZY_EXPORTS = {
         '.contracts',
         'QuboSolver',
     ),
+    'Sampler': (
+        '.contracts',
+        'Sampler',
+    ),
     'QRBnBRMaxCutAdapter': (
         '.adapters',
         'QRBnBRMaxCutAdapter',
@@ -104,6 +108,7 @@ __all__ = [
     'QuboSolver',
     'QRBnBRMaxCutAdapter',
     'QRBnBRSolverAdapter',
+    'Sampler',
     'Solver',
     'weight_encoding',
 ]
