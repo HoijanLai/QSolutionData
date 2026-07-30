@@ -40,8 +40,11 @@ class SolverPackageTests(unittest.TestCase):
         self.assertIs(solvers.mis, mis)
         self.assertIs(solvers.qubo, qubo)
 
-    def test_subpackages_do_not_claim_unimplemented_solvers(self):
-        self.assertEqual([], cbqm.__all__)
+    def test_subpackages_export_only_implemented_solvers(self):
+        self.assertEqual(
+            ['BaseCbqmSolver', 'CbqmSolveOutcome'],
+            cbqm.__all__,
+        )
         self.assertEqual([], mis.__all__)
         self.assertEqual(
             [
