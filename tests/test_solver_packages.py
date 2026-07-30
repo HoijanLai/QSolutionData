@@ -47,7 +47,10 @@ class SolverPackageTests(unittest.TestCase):
             ['BaseCbqmSolver', 'CbqmSolveOutcome', 'ExactCbqmSolver'],
             cbqm.__all__,
         )
-        self.assertEqual([], mis.__all__)
+        self.assertEqual(
+            ['BaseMisSolver', 'MisSolveOutcome'],
+            mis.__all__,
+        )
         self.assertEqual(
             [
                 'BaseQuboSolver',
