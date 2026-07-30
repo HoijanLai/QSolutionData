@@ -258,6 +258,19 @@ def _evaluate_cbqm(problem, solution):
     return evaluate_cbqm_objective(problem, sample)
 
 
+def _evaluate_mis_task(artifact, solution, task):
+    """Evaluate a canonical vertex-index set against its native MIS graph."""
+    del task
+    from lib.contracts import evaluate_mis_solution
+
+    semantics = evaluate_mis_solution(artifact.payload, solution)
+    if not semantics['feasible']:
+        raise ValueError(
+            'Candidate is not an independent set or violates fixed values.'
+        )
+    return semantics['objective_value']
+
+
 def _raise_cbqm_violation(violation):
     """Translate a canonical violation into the updater's stable diagnostic."""
     name = violation['constraint_name']
@@ -433,7 +446,7 @@ def _validate_finite_objective(value, label):
 
 
 def _register_builtin_task_evaluators():
-    """Install the two canonical binary-vector objective evaluators."""
+    """Install canonical objective evaluators for built-in task formats."""
     register_task_evaluator(
         'qubo.v1',
         'binary-vector.v1',
@@ -443,6 +456,11 @@ def _register_builtin_task_evaluators():
         'cbqm.v1',
         'binary-vector.v1',
         _evaluate_cbqm_task,
+    )
+    register_task_evaluator(
+        'mis.v1',
+        'vertex-index-set.v1',
+        _evaluate_mis_task,
     )
 
 

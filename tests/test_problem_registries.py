@@ -110,7 +110,12 @@ class ProblemRegistryTests(unittest.TestCase):
             ('qubo.v1', 'binary-vector.v1'),
             components['task_evaluators'],
         )
+        self.assertIn(
+            ('mis.v1', 'vertex-index-set.v1'),
+            components['task_evaluators'],
+        )
         self.assertIn('cbqm.v1', components['native_solver_runners'])
+        self.assertIn('mis.v1', components['native_solver_runners'])
         with self.assertRaises(TypeError):
             components['task_evaluators']['new'] = lambda: None
 

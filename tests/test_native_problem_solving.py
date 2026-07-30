@@ -6,9 +6,12 @@ import unittest
 from lib.contracts import (
     evaluate_cbqm_feasibility,
     evaluate_cbqm_objective,
+    evaluate_mis_solution,
 )
 from lib.solvers.cbqm import ExactCbqmSolver
+from lib.solvers.mis import ExactMisSolver, GreedyMisSolver
 from problem import (
+    BestKnownSolution,
     NativeSolverRunner,
     ProblemArtifact,
     ProblemCase,
@@ -16,6 +19,7 @@ from problem import (
     register_native_solver_runner,
     register_task_evaluator,
     solve_native_problem_task,
+    validate_problem_case,
 )
 
 
@@ -70,6 +74,49 @@ def _cbqm_case(payload=None):
     )
 
 
+def _mis(problem_id='native-mis'):
+    """Return a path graph with a canonical two-vertex MIS optimum."""
+    return {
+        'schema': 'mis.v1',
+        'problem_id': problem_id,
+        'objective': {'kind': 'maximum-cardinality'},
+        'vertices': [
+            {'index': 0, 'name': 'a'},
+            {'index': 1, 'name': 'b'},
+            {'index': 2, 'name': 'c'},
+            {'index': 3, 'name': 'd'},
+        ],
+        'edges': [[0, 1], [1, 2], [2, 3]],
+        'fixed_values': [],
+        'metadata': {},
+    }
+
+
+def _mis_case(payload=None, best_known=None):
+    """Wrap an MIS graph as one vertex-index-set maximization task."""
+    problem = _mis() if payload is None else payload
+    return ProblemCase(
+        problem_id=problem['problem_id'],
+        artifacts=(
+            ProblemArtifact(
+                artifact_id='mis',
+                representation='mis.v1',
+                payload=problem,
+            ),
+        ),
+        tasks=(
+            TaskDefinition(
+                task_id='maximum-independent-set',
+                canonical_artifact_id='mis',
+                sense='maximize',
+                solution_representation='vertex-index-set.v1',
+                task_type='maximum-independent-set',
+                best_known=best_known,
+            ),
+        ),
+    )
+
+
 class _FixedCbqmResultSolver:
     """Return one contract-valid nominated sample with a chosen status."""
 
@@ -113,6 +160,52 @@ class _SideEffectSolver:
         del problem, config
         self.calls += 1
         raise AssertionError('invalid input reached solver')
+
+
+class _FixedMisResultSolver:
+    """Return one contract-valid MIS witness with a caller-chosen status."""
+
+    def __init__(self, selected_vertices, status):
+        self.selected_vertices = selected_vertices
+        self.status = status
+
+    def solve(self, problem, config=None):
+        del config
+        selected = (
+            None
+            if self.selected_vertices is None
+            else list(self.selected_vertices)
+        )
+        semantics = (
+            None
+            if selected is None
+            else evaluate_mis_solution(problem, selected)
+        )
+        return {
+            'schema': 'mis-result.v1',
+            'problem_id': problem['problem_id'],
+            'solver': {
+                'name': 'fixed-mis-result',
+                'version': '1',
+                'backend': 'test',
+            },
+            'status': self.status,
+            'selected_vertices': selected,
+            'objective_value': (
+                None if semantics is None else semantics['objective_value']
+            ),
+            'cardinality': (
+                None if semantics is None else semantics['cardinality']
+            ),
+            'total_weight': (
+                None if semantics is None else semantics['total_weight']
+            ),
+            'feasible': (
+                None if semantics is None else semantics['feasible']
+            ),
+            'runtime_seconds': 0,
+            'metadata': {},
+        }
 
 
 class NativeProblemSolvingTests(unittest.TestCase):
@@ -222,6 +315,139 @@ class NativeProblemSolvingTests(unittest.TestCase):
                 'select-one',
                 'other',
                 ExactCbqmSolver(),
+            )
+
+    def test_exact_mis_updates_only_after_independent_native_verification(self):
+        record = solve_native_problem_task(
+            _mis_case(),
+            'maximum-independent-set',
+            'mis',
+            ExactMisSolver(),
+            update_best=True,
+        )
+
+        self.assertEqual('mis-result.v1', record.raw_result['schema'])
+        self.assertEqual([0, 2], record.canonical_solution)
+        self.assertEqual(2, record.canonical_objective_value)
+        self.assertTrue(record.exact_for_task)
+        self.assertTrue(record.update.current.exact)
+        evidence = record.update.current.metadata['exactness']
+        self.assertEqual('direct_mis', evidence['route'])
+        self.assertTrue(evidence['independent_mis_optimality_verified'])
+        self.assertEqual(
+            'exhaustive-mis-enumeration',
+            evidence['optimality_verification_method'],
+        )
+
+    def test_forged_optimal_status_cannot_lock_a_worse_mis_candidate(self):
+        record = solve_native_problem_task(
+            _mis_case(),
+            'maximum-independent-set',
+            'mis',
+            _FixedMisResultSolver([0], 'optimal'),
+            update_best=True,
+        )
+
+        self.assertEqual([0], record.canonical_solution)
+        self.assertFalse(record.exact_for_task)
+        self.assertFalse(record.update.current.exact)
+        self.assertEqual(
+            'better_assignment_found',
+            record.update.current.metadata['exactness'][
+                'optimality_verification_reason'
+            ],
+        )
+
+    def test_greedy_mis_updates_a_non_exact_best_known_solution(self):
+        record = solve_native_problem_task(
+            _mis_case(),
+            'maximum-independent-set',
+            'mis',
+            GreedyMisSolver(),
+            update_best=True,
+        )
+
+        self.assertEqual('feasible', record.raw_result['status'])
+        self.assertEqual([0, 2], record.canonical_solution)
+        self.assertFalse(record.exact_for_task)
+        self.assertTrue(record.update.updated)
+        self.assertFalse(record.update.current.exact)
+        self.assertEqual(
+            'solver_did_not_report_optimal',
+            record.update.current.metadata['exactness'][
+                'optimality_verification_reason'
+            ],
+        )
+
+    def test_mis_verification_limit_keeps_exact_claim_non_persistent(self):
+        record = solve_native_problem_task(
+            _mis_case(),
+            'maximum-independent-set',
+            'mis',
+            ExactMisSolver(),
+            update_best=True,
+            exact_verification_max_variables=3,
+        )
+
+        self.assertFalse(record.exact_for_task)
+        self.assertEqual(
+            'vertex_limit_exceeded',
+            record.update.current.metadata['exactness'][
+                'optimality_verification_reason'
+            ],
+        )
+
+    def test_mis_case_validation_deep_checks_artifact_and_best_known(self):
+        case = _mis_case(
+            best_known=BestKnownSolution(
+                solution=[0, 2],
+                objective_value=2,
+                exact=False,
+                source='test',
+            ),
+        )
+
+        report = validate_problem_case(case, strict=True)
+
+        self.assertTrue(report.fully_checked)
+        self.assertEqual(1, report.validated_artifact_count)
+        self.assertEqual(1, report.validated_best_known_count)
+
+    def test_invalid_mis_is_rejected_before_solver_side_effect(self):
+        problem = _mis('invalid-native-mis')
+        problem['metadata'] = 'not-an-object'
+        solver = _SideEffectSolver()
+
+        with self.assertRaisesRegex(TypeError, 'must be an object'):
+            solve_native_problem_task(
+                _mis_case(problem),
+                'maximum-independent-set',
+                'mis',
+                solver,
+            )
+        self.assertEqual(0, solver.calls)
+
+    def test_mis_canonical_task_must_use_maximize_sense(self):
+        problem = _mis('mis-sense')
+
+        with self.assertRaisesRegex(ValueError, 'disagrees'):
+            ProblemCase(
+                problem_id=problem['problem_id'],
+                artifacts=(
+                    ProblemArtifact(
+                        artifact_id='mis',
+                        representation='mis.v1',
+                        payload=problem,
+                    ),
+                ),
+                tasks=(
+                    TaskDefinition(
+                        task_id='wrong-sense',
+                        canonical_artifact_id='mis',
+                        sense='minimize',
+                        solution_representation='vertex-index-set.v1',
+                    ),
+                ),
             )
 
     def test_a_registered_custom_native_format_needs_no_dispatch_branch(self):

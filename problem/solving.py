@@ -1,4 +1,4 @@
-"""Case-aware execution bridge for canonical QUBO solvers.
+"""Case-aware execution bridge for canonical optimization solvers.
 
 Solvers intentionally remain small and representation-specific: a
 ``QuboSolver`` consumes a ``qubo.v1`` mapping and returns
@@ -481,6 +481,25 @@ def _run_and_validate_cbqm_solver(payload, solver, config):
     return _mutable_json_copy(result)
 
 
+def _run_and_validate_mis_solver(payload, solver, config):
+    """Call an MIS solver, then recompute its complete result semantics."""
+    from lib.contracts import validate_mis, validate_mis_result
+
+    validate_mis(payload)
+    solver_payload = _mutable_json_copy(payload)
+    solver_config = (
+        None
+        if config is None
+        else _mutable_json_copy(config)
+    )
+    result = solver.solve(solver_payload, solver_config)
+    validate_mis_result(
+        problem=payload,
+        result=result,
+    )
+    return _mutable_json_copy(result)
+
+
 def _qubo_candidate_from_result(result):
     """Extract the optional binary incumbent from a valid QUBO result."""
     sample = result['best_sample']
@@ -498,6 +517,14 @@ def _cbqm_candidate_from_result(result):
     ):
         return None
     return list(sample)
+
+
+def _mis_candidate_from_result(result):
+    """Expose only a feasible native vertex-index-set incumbent."""
+    selected = result['selected_vertices']
+    if selected is None or result['feasible'] is not True:
+        return None
+    return list(selected)
 
 
 def _interpret_candidate(
@@ -794,6 +821,118 @@ def _verify_native_cbqm_exactness(problem, sample, result, max_variables):
         sample,
         result['status'],
         max_variables,
+    )
+
+
+def _independently_verify_mis_optimality(
+    problem,
+    selected_vertices,
+    status,
+    max_vertices,
+):
+    """Verify a native MIS optimum by enumerating the original graph domain."""
+    evidence = {
+        'solver_reported_optimal': status == 'optimal',
+        'independent_mis_optimality_verified': False,
+        'optimality_verification_method': None,
+        'optimality_verification_max_vertices': max_vertices,
+        'optimality_assignments_checked': 0,
+        'feasible_assignments_checked': 0,
+    }
+    if status != 'optimal':
+        evidence['optimality_verification_reason'] = (
+            'solver_did_not_report_optimal'
+        )
+        return False, evidence
+
+    vertex_count = len(problem['vertices'])
+    if vertex_count > max_vertices:
+        evidence['optimality_verification_reason'] = (
+            'vertex_limit_exceeded'
+        )
+        return False, evidence
+
+    candidate_objective = _evaluate_mis_objective_exact(
+        problem,
+        selected_vertices,
+    )
+    checked = 0
+    feasible_checked = 0
+    for assignment in itertools.product((0, 1), repeat=vertex_count):
+        checked += 1
+        if not _mis_assignment_is_feasible(problem, assignment):
+            continue
+        feasible_checked += 1
+        objective = _evaluate_mis_assignment_exact(problem, assignment)
+        if objective > candidate_objective:
+            evidence.update({
+                'optimality_assignments_checked': checked,
+                'feasible_assignments_checked': feasible_checked,
+                'optimality_verification_reason': (
+                    'better_assignment_found'
+                ),
+            })
+            return False, evidence
+
+    evidence.update({
+        'independent_mis_optimality_verified': True,
+        'optimality_verification_method': 'exhaustive-mis-enumeration',
+        'optimality_assignments_checked': checked,
+        'feasible_assignments_checked': feasible_checked,
+        'optimality_verification_reason': 'search_space_exhausted',
+    })
+    return True, evidence
+
+
+def _mis_assignment_is_feasible(problem, assignment):
+    """Check edges and hard assignments independently of solver helpers."""
+    if any(
+        assignment[left] and assignment[right]
+        for left, right in problem['edges']
+    ):
+        return False
+    return all(
+        assignment[fixed['index']] == fixed['value']
+        for fixed in problem.get('fixed_values', [])
+    )
+
+
+def _evaluate_mis_assignment_exact(problem, assignment):
+    """Evaluate one feasible assignment using exact JSON-number arithmetic."""
+    if problem['objective']['kind'] == 'maximum-cardinality':
+        return Fraction(sum(assignment))
+    return sum(
+        (
+            Fraction(problem['vertices'][index]['weight'])
+            for index, selected in enumerate(assignment)
+            if selected
+        ),
+        start=Fraction(0),
+    )
+
+
+def _evaluate_mis_objective_exact(problem, selected_vertices):
+    """Evaluate a canonical index set without trusting reported result fields."""
+    selected = set(selected_vertices)
+    assignment = tuple(
+        int(index in selected)
+        for index in range(len(problem['vertices']))
+    )
+    return _evaluate_mis_assignment_exact(problem, assignment)
+
+
+def _verify_native_mis_exactness(
+    problem,
+    selected_vertices,
+    result,
+    max_vertices,
+):
+    """Adapt independent MIS exact verification to the runner registry."""
+    return _independently_verify_mis_optimality(
+        problem,
+        selected_vertices,
+        result['status'],
+        max_vertices,
     )
 
 
@@ -1109,7 +1248,7 @@ def _payload_sha256(payload):
 
 
 def _register_builtin_native_solver_runners():
-    """Install direct QUBO and CBQM execution as registry components."""
+    """Install direct execution adapters for built-in model contracts."""
     register_native_solver_runner(
         'qubo.v1',
         NativeSolverRunner(
@@ -1126,6 +1265,15 @@ def _register_builtin_native_solver_runners():
             candidate_from_result=_cbqm_candidate_from_result,
             verify_exact=_verify_native_cbqm_exactness,
             route_kind='direct_cbqm',
+        ),
+    )
+    register_native_solver_runner(
+        'mis.v1',
+        NativeSolverRunner(
+            run_and_validate=_run_and_validate_mis_solver,
+            candidate_from_result=_mis_candidate_from_result,
+            verify_exact=_verify_native_mis_exactness,
+            route_kind='direct_mis',
         ),
     )
 

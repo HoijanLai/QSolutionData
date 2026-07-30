@@ -25,7 +25,7 @@ from pathlib import Path
 
 import networkx as nx
 
-from lib.contracts import validate_cbqm, validate_qubo
+from lib.contracts import validate_cbqm, validate_mis, validate_qubo
 
 from .graph_codec import artifact_to_networkx
 from .problem_def import (
@@ -243,6 +243,12 @@ def _validate_cbqm_artifact(problem_case, artifact):
     """Run the authoritative closed CBQM wire-contract validator."""
     del problem_case
     validate_cbqm(artifact.payload)
+
+
+def _validate_mis_artifact(problem_case, artifact):
+    """Run the authoritative closed native MIS wire-contract validator."""
+    del problem_case
+    validate_mis(artifact.payload)
 
 
 def _validate_qubo_artifact(problem_case, artifact):
@@ -573,6 +579,7 @@ def _register_builtin_representation_validators():
     """Install authoritative validators without hard-coded dispatch branches."""
     registrations = (
         ('cbqm.v1', _validate_cbqm_artifact),
+        ('mis.v1', _validate_mis_artifact),
         ('qubo.v1', _validate_qubo_artifact),
         ('networkx.node-link.v1', _validate_node_link_artifact),
         (CBQM_FACTOR_REPRESENTATION, _validate_cbqm_factor_artifact),

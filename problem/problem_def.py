@@ -31,7 +31,7 @@ from typing import Any
 
 PROBLEM_CASE_SCHEMA = 'problem-case.v1'
 _SAFE_IDENTIFIER = re.compile(r'^[A-Za-z0-9._-]+$')
-_KNOWN_MODEL_REPRESENTATIONS = {'cbqm.v1', 'qubo.v1'}
+_KNOWN_MODEL_REPRESENTATIONS = {'cbqm.v1', 'mis.v1', 'qubo.v1'}
 
 
 @dataclass(frozen=True)
@@ -489,6 +489,8 @@ def _canonical_artifact_sense(artifact):
     if artifact.representation == 'cbqm.v1':
         objective = artifact.payload.get('objective')
         return objective.get('sense') if isinstance(objective, Mapping) else None
+    if artifact.representation == 'mis.v1':
+        return 'maximize'
     return None
 
 
