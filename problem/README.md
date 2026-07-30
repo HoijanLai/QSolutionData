@@ -8,6 +8,7 @@ artifact，而不是一个尚未定义语义的“万能图问题”。
 ProblemCase
 ├── artifacts
 │   ├── cbqm.v1
+│   ├── mis.v1
 │   ├── qubo.v1
 │   ├── networkx.cbqm-factor.v1
 │   ├── networkx.qubo-interaction.v1
@@ -152,6 +153,27 @@ record = solve_native_problem_task(
 )
 ```
 
+原生 MIS 使用同一入口，但 task 的解格式是顶点索引集：
+
+```python
+from lib.solvers.mis import ExactMisSolver
+from problem import solve_native_problem_task
+
+record = solve_native_problem_task(
+    case,
+    task_id='maximum-independent-set',
+    artifact_id='mis',
+    solver=ExactMisSolver(),
+    config={'max_vertices': 24},
+    update_best=True,
+    exact_verification_max_variables=24,
+)
+```
+
+对应 canonical artifact 为 `mis.v1`，task 必须使用 `sense='maximize'` 和
+`solution_representation='vertex-index-set.v1'`。`GreedyMisSolver` 也走同一
+入口，但只更新普通 best-known，不会因偶然命中最优值而自动标成 exact。
+
 `solve_native_problem_task()` 要求所选 artifact 就是 task 的 canonical
 artifact，并根据 representation registry 选择输入/result validator、候选解释和
 exact verifier。新增原生格式可分别注册 representation validator、task evaluator
@@ -165,11 +187,13 @@ exact verifier。新增原生格式可分别注册 representation validator、ta
 - 在兼容 QUBO 路径中把直接编译的 sample 投影回 CBQM，并重验可行性和原目标；
 - 按请求更新对应 task 的 best-known。
 
-`qubo-result.v1` 或 `cbqm-result.v1` 的 `status='optimal'` 是 solver 的结论，
-不是通用结果校验器能够自行证明的事实。直接 QUBO/CBQM 路径会用精确数值重新
-枚举对应 canonical artifact，确认没有更优 assignment 后，才允许把结果写成
-task 的 `exact=True`。`exact_verification_max_variables` 是独立复核的规模上限；
-超过上限时仍可保留候选解，但会保守地保持非 exact。
+`qubo-result.v1`、`cbqm-result.v1` 或 `mis-result.v1` 的
+`status='optimal'` 是 solver 的结论，
+不是通用结果校验器能够自行证明的事实。直接 QUBO/CBQM/MIS 路径会用精确数值重新
+枚举对应 canonical artifact，确认没有更优 assignment/independent set 后，
+才允许把结果写成 task 的 `exact=True`。`exact_verification_max_variables`
+是兼容 API 中的独立复核规模上限；MIS 路径把它解释为顶点数上限。超过上限
+时仍可保留候选解，但会保守地保持非 exact。
 
 编译为 QUBO 后求解的 CBQM 还需要额外的编译证明。只有以下条件全部成立才会设置
 `exact_for_task=True`：
@@ -199,10 +223,12 @@ update = update_best_known(case, 'allocation', candidate)
 case = update.case
 ```
 
-`cbqm.v1` 与 `qubo.v1` 使用内置 evaluator 先验证完整数学契约，再以精确
-JSON-number 算术重新计算 objective；CBQM 还会验证 fixed values 和全部约束。
-二进制向量只接受真正的 Python 整数 `0/1`，不会把 `False` 或 `1.0` 静默
-归一化。其他 task 必须显式传入 `evaluator=`。
+`cbqm.v1`、`mis.v1` 与 `qubo.v1` 使用内置 evaluator 先验证完整数学契约，
+再以精确 JSON-number 算术重新计算 objective；CBQM 还会验证 fixed values
+和全部约束。
+二进制向量只接受真正的 Python 整数 `0/1`；MIS 顶点集只接受严格递增的整数
+索引。两者都不会把 `False` 或 `1.0` 静默归一化。其他 task 必须显式传入
+`evaluator=`。
 
 已有 exact incumbent 时，普通更新返回 `reason='exact_solution_locked'`。
 更换 canonical artifact 的 payload 前必须先清除关联 task 的 incumbent，
@@ -243,11 +269,11 @@ print(report.to_dict())
 它不修改任何文件，并依次检查：
 
 - case manifest、artifact 路径、lineage、完整性 hash 和 task 引用；
-- `cbqm.v1`、`qubo.v1` 的完整数学契约；
+- `cbqm.v1`、`mis.v1`、`qubo.v1` 的完整数学契约；
 - 通用 NetworkX node-link 结构；
 - factor/interaction graph 的反向还原，并与直接父模型进行类型敏感比较；
 - signed MaxCut graph 是否能由内嵌 QUBO 重新生成，且与直接父 QUBO 一致；
-- 内置 CBQM/QUBO task 的 best-known witness、可行性和 objective。
+- 内置 CBQM/MIS/QUBO task 的 best-known witness、可行性和 objective。
 
 对 `exact=True`，体检会检查现有 witness 和可用的 provenance，但不会重新穷举
 证明全局最优；最优性升级由对应执行桥的独立复核流程负责。

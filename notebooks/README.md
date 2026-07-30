@@ -29,13 +29,19 @@
    - 通过 `solve_native_problem_task()` 验证独立 exact promotion
    - notebook 不定义 solver、objective、feasibility 或穷举 helper
 
-4. `05_simulated_annealing_validation.ipynb`
+4. `04_mis_solver_validation.ipynb`
+   - 读取 canonical `mis.v1` 契约示例
+   - 用 `tests.oracles` 独立枚举最大独立集
+   - 对比 `ExactMisSolver` 与 `GreedyMisSolver`
+   - 验证 maximum-cardinality、maximum-weight 与 fixed-value 不可行证书
+   - 通过 `solve_native_problem_task()` 验证独立 exact promotion
+   - notebook 不定义 solver、objective、feasibility 或穷举 helper
+
+5. `05_simulated_annealing_validation.ipynb`
    - 从 `problem.benchmarks` 加载 deterministic QUBO fixtures
    - 用 `tests/oracles` 与 `ExactQuboSolver` 建立独立对照
    - 验证 SA 的 `feasible` 语义、canonical energy 与固定 seed
    - 演示显式 custom beta schedule，不在 notebook 中实现退火逻辑
-
-`04` 编号预留给路线图中的 native MIS 验证 notebook。
 
 ## 运行
 

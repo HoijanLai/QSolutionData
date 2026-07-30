@@ -54,9 +54,18 @@ Its result reports the original objective and an independently recomputable
 feasibility summary. Native constrained solvers must not return
 `qubo-result.v1`, because penalty energy is not the business objective.
 
-Future MIS integrations should add their own versioned result and specialized
-protocol. A common method name does not make different result semantics
-interchangeable.
+### MIS specialization
+
+`MisSolver` binds the generic call shape to:
+
+```text
+mis.v1 -> mis-result.v1
+```
+
+The candidate is a canonical, strictly increasing vertex-index set. Result
+validation recomputes cardinality, total weight, fixed-value compliance and
+independent-set feasibility from the source graph. Maximum-cardinality and
+maximum-weight semantics remain explicit in the input contract.
 
 ## Sampler protocol
 
@@ -73,6 +82,7 @@ best-candidate result. The existing `solve()` API does not need to change.
 ## Validation helpers
 
 `lib.contracts` publicly exports `validate_cbqm`, `validate_cbqm_result`,
+`validate_mis`, `validate_mis_result`, `evaluate_mis_solution`,
 `validate_qubo`, `validate_qubo_result`, and
 `validate_binary_sample_set`. Builders, compilers, adapters, solvers, and
 samplers should call the applicable public validator at their boundary, then
@@ -82,6 +92,8 @@ Authoritative serializable artifacts:
 
 - `contracts/schemas/cbqm.v1.schema.json`
 - `contracts/schemas/cbqm-result.v1.schema.json`
+- `contracts/schemas/mis.v1.schema.json`
+- `contracts/schemas/mis-result.v1.schema.json`
 - `contracts/schemas/qubo.v1.schema.json`
 - `contracts/schemas/qubo-result.v1.schema.json`
 - `contracts/schemas/binary-sample-set.v1.schema.json`

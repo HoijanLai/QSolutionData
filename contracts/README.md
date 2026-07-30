@@ -21,6 +21,10 @@ cbqm-result.v1
 binary problem
   -> sampler.sample(problem, config)
 binary-sample-set.v1
+
+mis.v1
+  -> native solver.solve(problem, config)
+mis-result.v1
 ```
 
 Backend-specific representations, including Qiskit `QuadraticProgram`,
@@ -29,15 +33,16 @@ must not change these contracts.
 
 These implemented paths are not a restriction on future solvers. The Python
 contract layer also exposes a representation-neutral
-`Solver[ProblemT, ResultT]` call shape. A solver that consumes an MIS graph or
-an oracle specification directly must bind that shape to its own versioned
-input/output schemas; it must not label a non-QUBO result as
-`qubo-result.v1`.
+`Solver[ProblemT, ResultT]` call shape. New problem families must bind that
+shape to their own versioned input/output schemas; they must not label a
+non-QUBO result as `qubo-result.v1`.
 
 ## Files
 
 - `schemas/cbqm.v1.schema.json`: constrained binary quadratic model.
 - `schemas/cbqm-result.v1.schema.json`: native constrained solver output.
+- `schemas/mis.v1.schema.json`: canonical native independent-set graph.
+- `schemas/mis-result.v1.schema.json`: native MIS solver output.
 - `schemas/qubo.v1.schema.json`: canonical QUBO solver input.
 - `schemas/qubo-result.v1.schema.json`: canonical QUBO solver output.
 - `schemas/binary-sample-set.v1.schema.json`: aggregated binary distribution.
@@ -67,12 +72,16 @@ from lib.contracts import (
     validate_binary_sample_set,
     validate_cbqm,
     validate_cbqm_result,
+    validate_mis,
+    validate_mis_result,
     validate_qubo,
     validate_qubo_result,
 )
 
 validate_cbqm(cbqm)
 validate_cbqm_result(cbqm, cbqm_result)
+validate_mis(mis)
+validate_mis_result(mis, mis_result)
 validate_qubo(qubo)
 validate_qubo_result(qubo, result)
 validate_binary_sample_set(sample_set)
@@ -143,6 +152,22 @@ Optional bounds and proof evidence are solver attestations. In particular,
 `proof.independently_verified: false` is expected for a proof emitted by the
 solver itself. Persistent `ProblemCase.best_known.exact` promotion requires a
 separate verifier, certificate, or authoritative external registration.
+
+## `mis.v1` and `mis-result.v1`
+
+`mis.v1` is a graph-native maximum independent set contract. Vertices retain
+stable contiguous indices and real names; undirected edges are unique
+`[u, v]` pairs in canonical order. The objective is explicitly either
+`maximum-cardinality` or `maximum-weight`, and optional `fixed_values` are hard
+assignments.
+
+The result witness is a strictly increasing vertex-index set. Its objective,
+cardinality, total weight and feasibility are recomputed from the source graph.
+`ExactMisSolver` provides branch-and-reduce proofs and bounds;
+`GreedyMisSolver` provides a deterministic feasible baseline with local
+exchanges. A solver-reported `optimal` becomes a persistent exact best-known
+only after the ProblemCase execution layer independently enumerates the native
+graph within its configured verification limit.
 
 ## `qubo.v1`
 

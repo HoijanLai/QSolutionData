@@ -20,14 +20,16 @@ def solve(problem, config=None):
 仍须使用自己的版本化输入、结果协议；相同的方法名不代表不同问题表示
 可以混用。
 
-当前 QUBO 与 CBQM 已拥有完整纵向协议：
+当前 QUBO、CBQM 与 MIS 已拥有完整纵向协议：
 
 ```text
 qubo.v1 -> qubo-result.v1
 cbqm.v1 -> cbqm-result.v1
+mis.v1 -> mis-result.v1
 ```
 
-MIS 仍应在自己的输入、结果 schema 与专用 Protocol 确定后再放入生产 solver。
+MIS 的见证是 `vertex-index-set.v1`，不能与 binary-vector 结果混用。当前原生
+实现包括 branch-and-reduce Exact 与 greedy/local-exchange 基线。
 
 公共 wrapper 负责数据检查、配置解析、计时、主要逻辑分支和结果构造；
 计算、搜索、分支、松弛与 rounding 等元逻辑放在保护式命名函数中。这与
