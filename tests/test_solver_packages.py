@@ -13,6 +13,7 @@ class SolverPackageTests(unittest.TestCase):
         script = (
             'import sys\n'
             'from lib.solvers.cbqm import ExactCbqmSolver\n'
+            'from lib.solvers.cbqm import LocalSearchCbqmSolver\n'
             'from lib.solvers.mis import ExactMisSolver, GreedyMisSolver\n'
             'from lib.solvers.qubo import ExactQuboSolver\n'
             'loaded = [name for name in sys.modules '
@@ -20,6 +21,8 @@ class SolverPackageTests(unittest.TestCase):
             "or name.startswith(('numpy.', 'pandas.'))]\n"
             'assert not loaded, loaded\n'
             'assert ExactCbqmSolver.__name__ == "ExactCbqmSolver"\n'
+            'assert LocalSearchCbqmSolver.__name__ '
+            '== "LocalSearchCbqmSolver"\n'
             'assert ExactMisSolver.__name__ == "ExactMisSolver"\n'
             'assert GreedyMisSolver.__name__ == "GreedyMisSolver"\n'
             'assert ExactQuboSolver.__name__ == "ExactQuboSolver"\n'
@@ -47,7 +50,12 @@ class SolverPackageTests(unittest.TestCase):
 
     def test_subpackages_export_only_implemented_solvers(self):
         self.assertEqual(
-            ['BaseCbqmSolver', 'CbqmSolveOutcome', 'ExactCbqmSolver'],
+            [
+                'BaseCbqmSolver',
+                'CbqmSolveOutcome',
+                'ExactCbqmSolver',
+                'LocalSearchCbqmSolver',
+            ],
             cbqm.__all__,
         )
         self.assertEqual(

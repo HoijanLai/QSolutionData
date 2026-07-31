@@ -47,6 +47,27 @@ Exact solver 的 proof 中 `independently_verified` 仍为 `false`，因为那�
 `solve_native_problem_task()` 独立枚举 canonical CBQM 后，才会把 task
 best-known 升级为持久化 `exact=True`。
 
+## LocalSearchCbqmSolver
+
+`LocalSearchCbqmSolver` 是不依赖 penalty 的原生启发式基线：
+
+```text
+prepare fixed values and exact constraints
+  -> create canonical/random start
+  -> repair constraint violations
+  -> improve the original objective through feasible moves
+  -> retain the best feasible incumbent
+```
+
+- repair 阶段只比较 violated constraint 数量与 exact violation magnitude；
+- objective 不参与 repair 排序，避免目标值掩盖约束违反；
+- 同时扫描一变量与二变量翻转，因此能在 one-hot 等离散可行域中移动；
+- `seed`、`max_restarts`、repair/local step 上限与 pair scan 上限均可配置；
+- 找到的候选只声明 `feasible`，即使恰好等于 exact optimum 也不伪造 proof；
+- repair 预算耗尽且没有可行候选时返回 `unknown`，绝不据此声称
+  `infeasible`；
+- timeout 会保留已经找到的可行 incumbent，并只报告 primal bound。
+
 ## 新 solver 的文件风格
 
 每个算法的公开 `_run()` 应像伪代码一样只保留主流程。数值计算、候选比较、

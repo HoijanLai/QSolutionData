@@ -8,7 +8,7 @@ from lib.contracts import (
     evaluate_cbqm_objective,
     evaluate_mis_solution,
 )
-from lib.solvers.cbqm import ExactCbqmSolver
+from lib.solvers.cbqm import ExactCbqmSolver, LocalSearchCbqmSolver
 from lib.solvers.mis import ExactMisSolver, GreedyMisSolver
 from problem import (
     BestKnownSolution,
@@ -229,6 +229,29 @@ class NativeProblemSolvingTests(unittest.TestCase):
         self.assertEqual('direct_cbqm', evidence['route'])
         self.assertTrue(
             evidence['independent_cbqm_optimality_verified']
+        )
+
+    def test_local_search_cbqm_updates_incumbent_without_exact_promotion(self):
+        record = solve_native_problem_task(
+            _cbqm_case(),
+            'select-one',
+            'cbqm',
+            LocalSearchCbqmSolver(),
+            {'seed': 0, 'max_restarts': 0},
+            update_best=True,
+        )
+
+        self.assertEqual('feasible', record.raw_result['status'])
+        self.assertEqual([1, 0], record.canonical_solution)
+        self.assertEqual(-2, record.canonical_objective_value)
+        self.assertFalse(record.exact_for_task)
+        self.assertFalse(record.update.current.exact)
+        evidence = record.update.current.metadata['exactness']
+        self.assertEqual('direct_cbqm', evidence['route'])
+        self.assertFalse(evidence['solver_reported_optimal'])
+        self.assertEqual(
+            'solver_did_not_report_optimal',
+            evidence['optimality_verification_reason'],
         )
 
     def test_forged_optimal_status_does_not_promote_a_worse_cbqm_candidate(self):
