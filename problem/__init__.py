@@ -40,6 +40,10 @@ from .registries import (
     register_task_evaluator,
     registered_problem_components,
 )
+from .reproductions import (
+    build_qrbnbr_s1_instance,
+    build_qrbnbr_s1_suite,
+)
 from .solving import (
     CaseSolveRecord,
     solve_native_problem_task,
@@ -81,6 +85,8 @@ __all__ = [
     'TransformationRecord',
     'artifact_from_networkx',
     'artifact_to_networkx',
+    'build_qrbnbr_s1_instance',
+    'build_qrbnbr_s1_suite',
     'case_from_dict',
     'case_to_dict',
     'cbqm_to_factor_graph',

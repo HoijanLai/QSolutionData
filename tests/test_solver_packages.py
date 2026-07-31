@@ -71,7 +71,10 @@ class SolverPackageTests(unittest.TestCase):
             [
                 'BaseQuboSolver',
                 'ExactQuboSolver',
+                'GoemansWilliamsonQuboSolver',
+                'GwBranchAndBoundQuboSolver',
                 'QaoaQuboSolver',
+                'QrbnbrQuboSolver',
                 'QuboSolveOutcome',
                 'SimulatedAnnealingQuboSolver',
             ],

@@ -6,7 +6,10 @@ from .exact import ExactQuboSolver
 __all__ = [
     'BaseQuboSolver',
     'ExactQuboSolver',
+    'GoemansWilliamsonQuboSolver',
+    'GwBranchAndBoundQuboSolver',
     'QaoaQuboSolver',
+    'QrbnbrQuboSolver',
     'QuboSolveOutcome',
     'SimulatedAnnealingQuboSolver',
 ]
@@ -25,6 +28,21 @@ def __getattr__(name):
 
         globals()[name] = QaoaQuboSolver
         return QaoaQuboSolver
+    if name == 'GoemansWilliamsonQuboSolver':
+        from .goemans_williamson import GoemansWilliamsonQuboSolver
+
+        globals()[name] = GoemansWilliamsonQuboSolver
+        return GoemansWilliamsonQuboSolver
+    if name == 'GwBranchAndBoundQuboSolver':
+        from .gw_bnb import GwBranchAndBoundQuboSolver
+
+        globals()[name] = GwBranchAndBoundQuboSolver
+        return GwBranchAndBoundQuboSolver
+    if name == 'QrbnbrQuboSolver':
+        from .qrbnbr import QrbnbrQuboSolver
+
+        globals()[name] = QrbnbrQuboSolver
+        return QrbnbrQuboSolver
     if name == 'SimulatedAnnealingQuboSolver':
         from .simulated_annealing import SimulatedAnnealingQuboSolver
 

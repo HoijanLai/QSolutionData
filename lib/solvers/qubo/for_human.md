@@ -71,7 +71,14 @@ class MyQuboSolver:
 当前参考实现包括：
 
 - `ExactQuboSolver`：小规模穷举，搜索耗尽后可以声明 `optimal`。
+- `GoemansWilliamsonQuboSolver`：CVXPY SDP relaxation 与 seeded random
+  hyperplane rounding，正常完成返回 `feasible`。
+- `GwBranchAndBoundQuboSolver`：论文的 classical control；使用 GW SDP
+  matrix 生成候选和分支信息，与 QRR-BnB 共享 parity tree 和 exact closure。
 - `QaoaQuboSolver`：NumPy statevector QAOA，返回启发式 `feasible`。
+- `QrbnbrQuboSolver`：面向非负权 MaxCut QUBO 的 Q-RBnBR 论文复现；p=1
+  QAOA/QRR 指导 edge-parity tree，admissible bound 与完整 leaf closure
+  决定是否可以声明 `optimal`。
 - `SimulatedAnnealingQuboSolver`：NumPy Metropolis 退火，正常完成返回
   `feasible`，deadline 返回 `timeout`，永不自行声明 `optimal`。
 
@@ -142,7 +149,10 @@ result = {
 lib/solvers/qubo/
 ├── for_human.md
 ├── exact.py
+├── goemans_williamson.py
+├── gw_bnb.py
 ├── qaoa.py
+├── qrbnbr.py
 ├── simulated_annealing.py
 ├── your_solver.py
 └── _utils.py

@@ -24,7 +24,8 @@
 3. `03_cbqm_native_solver_validation.ipynb`
    - 读取 canonical `cbqm.v1` 契约示例
    - 用 `tests/oracles` 独立枚举原始可行域和 objective
-   - 直接运行 `ExactCbqmSolver` 并校验 `cbqm-result.v1`
+   - 对比 `ExactCbqmSolver` 与 `LocalSearchCbqmSolver`
+   - 校验 exact proof 与 heuristic `feasible` 语义
    - 检查 feasibility、bounds、optimality/infeasibility proof
    - 通过 `solve_native_problem_task()` 验证独立 exact promotion
    - notebook 不定义 solver、objective、feasibility 或穷举 helper
@@ -42,6 +43,25 @@
    - 用 `tests/oracles` 与 `ExactQuboSolver` 建立独立对照
    - 验证 SA 的 `feasible` 语义、canonical energy 与固定 seed
    - 演示显式 custom beta schedule，不在 notebook 中实现退火逻辑
+
+6. `06_qrbnbr_reproduction.ipynb`
+   - 生成论文 S1 风格的确定性随机无权 MaxCut `qubo.v1`
+   - 保留 NetworkX node-link 源图、论文 URL 与源码 revision
+   - 用独立 oracle 和 `ExactQuboSolver` 建立真实最优值
+   - 运行 R1 correlation 与 R2 selective-composition 两条 Q-RBnBR 路线
+   - 验证 edge-parity tree 穷尽、admissible bound 与 canonical result
+
+7. `07_goemans_williamson_validation.ipynb`
+   - 验证 CVXPY SDP、PSD factorization 与 seeded hyperplane rounding
+   - 用独立 oracle 检查 cut、SDP relaxation 和 canonical energy 方向
+   - 验证 CLARABEL，并在可用时交叉运行 SCS
+   - 即使命中真实最优值也保持 approximation solver 的 `feasible`
+
+8. `08_qrr_vs_gw_bnb_reproduction.ipynb`
+   - 在同一个 S1 风格 MaxCut 上比较 QRR-BnB 与 GW-BnB
+   - 对照 R1 correlation/SDP 与 R2 selective/SDP
+   - 验证两条路线共享相同的 parity-tree optimality certificate
+   - 展示 nodes、pruned、relaxations 与 exact leaves，不实现算法逻辑
 
 ## 运行
 
