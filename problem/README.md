@@ -248,6 +248,29 @@ JSON 使用 UTF-8，禁止 NaN/Infinity、重复 object key 和未声明的 enve
 字段；manifest 最后以原子替换方式写入。Artifact path 必须保持在所属 case
 目录内。
 
+## 数学 benchmark
+
+`problem/benchmarks/` 提供与业务数据解耦的 canonical 微型问题，包括
+spin glass、planted/degenerate QUBO、TSP、knapsack、exact cover、
+graph colouring，以及多种 cardinality/weighted MIS 图族。它们具有固定 seed、
+exact reference 和直接 `ProblemCase` 包装，并可在本机重新运行整套 Exact
+计时审计。完整目录与用法见
+[`problem/benchmarks/README.md`](benchmarks/README.md)。
+
+```python
+from problem.benchmarks import (
+    build_mathematical_benchmark_cases,
+    build_mathematical_benchmark_suite,
+)
+
+suite = build_mathematical_benchmark_suite()
+cases = build_mathematical_benchmark_cases()
+```
+
+```powershell
+python -m problem.benchmarks
+```
+
 ## 整套问题集体检
 
 新增或修改案例后，可以从仓库根目录运行：
