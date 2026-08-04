@@ -1,0 +1,166 @@
+{
+  "schema": "problem-case.v1",
+  "problem_id": "select-one-example",
+  "primary_artifact_id": "cbqm",
+  "artifacts": [
+    {
+      "artifact_id": "cbqm",
+      "representation": "cbqm.v1",
+      "path": "artifacts/cbqm.json",
+      "parent_artifact_id": null,
+      "transformation": null,
+      "metadata": {
+        "role": "canonical-business-model"
+      }
+    },
+    {
+      "artifact_id": "qubo-penalty-4",
+      "representation": "qubo.v1",
+      "path": "artifacts/qubo-penalty-4.json",
+      "parent_artifact_id": "cbqm",
+      "transformation": {
+        "name": "compile_qubo",
+        "version": "quadratic_penalty.v1",
+        "lossless": false,
+        "context": {
+          "requested_config": {
+            "default_penalty": 4.0
+          },
+          "model_equivalence": "conditional",
+          "compilation": {
+            "schema": "qubo-compilation-context.v1",
+            "source_problem_id": "select-one-example",
+            "source_variable_count": 2,
+            "source_variable_names": [
+              "asset_alpha",
+              "asset_beta"
+            ],
+            "objective_sense": "minimize",
+            "objective_multiplier": 1.0,
+            "fixed_values": [],
+            "free_variables": [
+              {
+                "cbqm_index": 0,
+                "qubo_index": 0,
+                "name": "asset_alpha"
+              },
+              {
+                "cbqm_index": 1,
+                "qubo_index": 1,
+                "name": "asset_beta"
+              }
+            ],
+            "slack_variables": [],
+            "constraints": [
+              {
+                "name": "select_one",
+                "family": "selection",
+                "penalty": 4.0,
+                "fixed_contribution": 0.0,
+                "fixed_substitution": {
+                  "fixed_contribution_exact": true,
+                  "adjusted_bounds_exact": true,
+                  "exact_reconstruction": true
+                },
+                "normalization": {
+                  "decimal_scale": 100000000,
+                  "integer_divisor": 100000000,
+                  "lattice_unit": 1.0,
+                  "penalty_domain": "integer_lattice",
+                  "exact_reconstruction": true,
+                  "max_abs_reconstruction_error": 0.0
+                },
+                "encodings": [
+                  {
+                    "side": "equal",
+                    "integer_rhs": 1,
+                    "integer_terms": [
+                      [
+                        0,
+                        1
+                      ],
+                      [
+                        1,
+                        1
+                      ]
+                    ],
+                    "slack_variables": [],
+                    "status": "encoded"
+                  }
+                ]
+              }
+            ],
+            "compiler_config": {
+              "strategy": "quadratic_penalty",
+              "default_penalty": 4.0,
+              "penalty_by_family": {},
+              "penalty_by_constraint": {},
+              "inequality_encoding": "binary_slack",
+              "constraint_precision": 8,
+              "rounding_tolerance": 1e-09,
+              "zero_tolerance": 1e-12,
+              "fixed_value_strategy": "eliminate"
+            },
+            "arithmetic": {
+              "exact_accumulation": true,
+              "inexact_locations": [],
+              "summation": "math.fsum-with-rational-reference"
+            },
+            "dropped_qubo_terms": [],
+            "qubo_variable_count": 2,
+            "qubo_variable_names": [
+              "asset_alpha",
+              "asset_beta"
+            ],
+            "equivalence": {
+              "schema": "qubo-compilation-equivalence.v1",
+              "constraint_lattice_exact": true,
+              "no_nonzero_terms_dropped": true,
+              "arithmetic_exact": true,
+              "feasible_set_preserved": true,
+              "objective_mapping_preserved": true,
+              "exact_projection_certified": true,
+              "scope": "Certifies exact source-to-QUBO algebra only; callers must also verify global solver optimality, projected feasibility, and the zero-penalty objective-energy relationship."
+            }
+          },
+          "exactness_note": "An optimal derived QUBO result must be decoded and checked against the source CBQM before it can certify the canonical task.",
+          "integrity": {
+            "source_sha256": "246fd74be10445a85d5d1e4d3b19cf00a6439a1a127cf2c990273a7e762c5d77",
+            "target_sha256": "57732f5e5b7530c52023f03196a614cbfd45dba108b17b534ecd5a505663945d"
+          }
+        }
+      },
+      "metadata": {
+        "model_equivalence": "conditional"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "select-one",
+      "canonical_artifact_id": "cbqm",
+      "task_type": "binary-selection",
+      "sense": "minimize",
+      "solution_representation": "binary-vector.v1",
+      "best_known": {
+        "solution": [
+          1,
+          0
+        ],
+        "objective_value": -2.0,
+        "exact": true,
+        "source": "analytical-enumeration",
+        "metadata": {}
+      },
+      "metadata": {}
+    }
+  ],
+  "metadata": {
+    "description": "CBQM canonical task with one conditionally equivalent QUBO artifact.",
+    "tags": [
+      "example",
+      "cbqm",
+      "qubo"
+    ]
+  }
+}

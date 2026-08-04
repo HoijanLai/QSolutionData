@@ -68,6 +68,20 @@ class MyQuboSolver:
         ...
 ```
 
+当前参考实现包括：
+
+- `ExactQuboSolver`：小规模穷举，搜索耗尽后可以声明 `optimal`。
+- `GoemansWilliamsonQuboSolver`：CVXPY SDP relaxation 与 seeded random
+  hyperplane rounding，正常完成返回 `feasible`。
+- `GwBranchAndBoundQuboSolver`：论文的 classical control；使用 GW SDP
+  matrix 生成候选和分支信息，与 QRR-BnB 共享 parity tree 和 exact closure。
+- `QaoaQuboSolver`：NumPy statevector QAOA，返回启发式 `feasible`。
+- `QrbnbrQuboSolver`：面向非负权 MaxCut QUBO 的 Q-RBnBR 论文复现；p=1
+  QAOA/QRR 指导 edge-parity tree，admissible bound 与完整 leaf closure
+  决定是否可以声明 `optimal`。
+- `SimulatedAnnealingQuboSolver`：NumPy Metropolis 退火，正常完成返回
+  `feasible`，deadline 返回 `timeout`，永不自行声明 `optimal`。
+
 ## QUBO 能量约定
 
 Solver 要最小化：
@@ -92,6 +106,10 @@ E(x) = offset + sum(coefficient * x[i] * x[j])
 - 返回的 `best_energy` 必须包含 `offset`
 
 Solver 内部可以忽略 offset，因为它不改变最优解，但返回结果时必须加回来。
+如果 solver 要返回 `status='optimal'`，内部的最优性比较不能先把所有 JSON
+数值无条件转成 `float`。例如很大的整数 offset 与一个 `-1` bias 在 binary64
+中可能看起来相等。项目内的 exact solver 使用精确有理数比较，公共 wrapper
+也会用同一规则复算最终能量。
 
 ## 最小结果格式
 
@@ -120,12 +138,22 @@ result = {
 - `error`：后端执行失败。
 - `unknown`：无法给出更强结论。
 
+这里的 `optimal` 是 solver 对自身算法终止条件的声明。`qubo-result.v1`
+校验器能验证 sample 和 energy 一致，却不能从一个字符串推导出全局最优。
+当结果进入 `ProblemCase` 时，`solve_problem_task()` 会在配置的变量上限内
+独立穷举一次；只有这次复核也通过，才会把 best-known 标成 exact。
+
 ## 推荐文件组织
 
 ```text
 lib/solvers/qubo/
 ├── for_human.md
-├── exact_solver.py
+├── exact.py
+├── goemans_williamson.py
+├── gw_bnb.py
+├── qaoa.py
+├── qrbnbr.py
+├── simulated_annealing.py
 ├── your_solver.py
 └── _utils.py
 ```
@@ -167,6 +195,7 @@ def _run_algorithm(problem, config):
 6. offset 被正确恢复。
 7. 固定随机种子时结果可复现。
 8. timeout 和无候选解可以正常返回。
+9. 大整数 offset 加很小 bias 时不会丢失最优解次序。
 
 小规模问题应与穷举最优值比较。
 

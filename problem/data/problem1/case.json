@@ -1,0 +1,25 @@
+{
+  "schema": "problem-case.v1",
+  "problem_id": "fund-relations-001",
+  "primary_artifact_id": "graph",
+  "artifacts": [
+    {
+      "artifact_id": "graph",
+      "representation": "networkx.node-link.v1",
+      "path": "artifacts/graph.json",
+      "parent_artifact_id": null,
+      "transformation": null,
+      "metadata": {
+        "role": "source"
+      }
+    }
+  ],
+  "tasks": [],
+  "metadata": {
+    "description": "Graph-native example with no optimization task assigned yet.",
+    "tags": [
+      "example",
+      "graph-native"
+    ]
+  }
+}

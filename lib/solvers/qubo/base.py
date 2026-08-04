@@ -8,7 +8,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, final
 
-from ...contracts.validation import _evaluate_qubo, _validate_qubo
+from ...contracts.validation import (
+    _evaluate_qubo,
+    validate_qubo,
+    validate_qubo_result,
+)
 
 
 _RESULT_STATUSES = {
@@ -54,7 +58,7 @@ class BaseQuboSolver(ABC):
     @final
     def solve(self, problem, config=None):
         """Validate, execute, and return a canonical ``qubo-result.v1``."""
-        _validate_qubo(problem)
+        validate_qubo(problem)
         resolved_config = self._resolve_config(config)
         algorithm_problem = copy.deepcopy(problem)
 
@@ -62,7 +66,9 @@ class BaseQuboSolver(ABC):
         outcome = self._run(algorithm_problem, resolved_config)
         runtime = time.perf_counter() - started_at
 
-        return self._build_result(problem, outcome, runtime)
+        result = self._build_result(problem, outcome, runtime)
+        validate_qubo_result(problem, result)
+        return result
 
     def _resolve_config(self, config):
         """Copy the solver-owned configuration before algorithm execution."""

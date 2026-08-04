@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:qsolutiondata:schema:cbqm-result.v1",
+  "title": "CBQM Solver Result v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "problem_id",
+    "solver",
+    "status",
+    "best_sample",
+    "best_objective",
+    "feasibility",
+    "runtime_seconds"
+  ],
+  "properties": {
+    "schema": {"const": "cbqm-result.v1"},
+    "problem_id": {"type": "string", "minLength": 1},
+    "solver": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "backend": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "enum": [
+        "optimal",
+        "feasible",
+        "infeasible",
+        "timeout",
+        "error",
+        "unknown"
+      ]
+    },
+    "best_sample": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "array", "items": {"enum": [0, 1]}}
+      ]
+    },
+    "best_objective": {"type": ["number", "null"]},
+    "feasibility": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/feasibility"}
+      ]
+    },
+    "bounds": {"$ref": "#/$defs/bounds"},
+    "proof": {"$ref": "#/$defs/proof"},
+    "runtime_seconds": {"type": "number", "minimum": 0},
+    "termination_reason": {"type": "string"},
+    "metrics": {"type": "object"},
+    "trace": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/traceEntry"}
+    },
+    "metadata": {"type": "object"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {"enum": ["optimal", "feasible"]}
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "best_sample": {"type": "array"},
+          "best_objective": {"type": "number"},
+          "feasibility": {
+            "allOf": [
+              {"$ref": "#/$defs/feasibility"},
+              {
+                "properties": {"feasible": {"const": true}},
+                "required": ["feasible"]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"status": {"const": "infeasible"}},
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "best_sample": {"type": "null"},
+          "best_objective": {"type": "null"},
+          "feasibility": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"best_sample": {"type": "null"}},
+        "required": ["best_sample"]
+      },
+      "then": {
+        "properties": {
+          "best_objective": {"type": "null"},
+          "feasibility": {"type": "null"}
+        }
+      },
+      "else": {
+        "properties": {
+          "best_objective": {"type": "number"},
+          "feasibility": {"$ref": "#/$defs/feasibility"}
+        }
+      }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "finiteNumber": {"type": "number"},
+    "violation": {
+      "type": "object",
+      "required": ["constraint_name", "activity", "magnitude"],
+      "properties": {
+        "constraint_name": {"type": "string", "minLength": 1},
+        "activity": {"$ref": "#/$defs/finiteNumber"},
+        "lower_bound": {"$ref": "#/$defs/finiteNumber"},
+        "upper_bound": {"$ref": "#/$defs/finiteNumber"},
+        "magnitude": {
+          "$ref": "#/$defs/finiteNumber",
+          "exclusiveMinimum": 0
+        }
+      },
+      "anyOf": [
+        {"required": ["lower_bound"]},
+        {"required": ["upper_bound"]}
+      ],
+      "additionalProperties": false
+    },
+    "feasibility": {
+      "type": "object",
+      "required": [
+        "feasible",
+        "violated_count",
+        "max_violation",
+        "violations"
+      ],
+      "properties": {
+        "feasible": {"type": "boolean"},
+        "violated_count": {"type": "integer", "minimum": 0},
+        "max_violation": {"type": "number", "minimum": 0},
+        "violations": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/violation"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "bounds": {
+      "type": "object",
+      "properties": {
+        "primal_bound": {"$ref": "#/$defs/finiteNumber"},
+        "dual_bound": {"$ref": "#/$defs/finiteNumber"},
+        "absolute_gap": {"type": "number", "minimum": 0},
+        "relative_gap": {"type": "number", "minimum": 0}
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "proof": {
+      "type": "object",
+      "required": [
+        "claim",
+        "kind",
+        "producer",
+        "independently_verified"
+      ],
+      "properties": {
+        "claim": {
+          "enum": ["optimality", "infeasibility", "bound"]
+        },
+        "kind": {"type": "string", "minLength": 1},
+        "producer": {"type": "string", "minLength": 1},
+        "independently_verified": {"type": "boolean"},
+        "details": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "traceEntry": {
+      "type": "object",
+      "required": ["step", "time_seconds"],
+      "properties": {
+        "step": {"type": "integer", "minimum": 0},
+        "time_seconds": {"type": "number", "minimum": 0},
+        "sample": {
+          "type": "array",
+          "items": {"enum": [0, 1]}
+        },
+        "objective": {"$ref": "#/$defs/finiteNumber"},
+        "feasible": {"type": "boolean"},
+        "metadata": {"type": "object"}
+      },
+      "dependentRequired": {
+        "sample": ["objective", "feasible"],
+        "objective": ["sample", "feasible"],
+        "feasible": ["sample", "objective"]
+      },
+      "additionalProperties": false
+    }
+  }
+}

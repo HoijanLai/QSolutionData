@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:qsolutiondata:schema:mis.v1",
+  "title": "Maximum Independent Set Problem v1",
+  "type": "object",
+  "required": ["schema", "problem_id", "objective", "vertices", "edges"],
+  "properties": {
+    "schema": {"const": "mis.v1"},
+    "problem_id": {"type": "string", "minLength": 1},
+    "objective": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": ["maximum-cardinality", "maximum-weight"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "vertices": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/vertex"}
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {"type": "integer", "minimum": 0},
+          {"type": "integer", "minimum": 0}
+        ],
+        "items": false,
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "fixed_values": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/fixedValue"}
+    },
+    "metadata": {"type": "object"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "objective": {
+            "properties": {
+              "kind": {"const": "maximum-weight"}
+            },
+            "required": ["kind"]
+          }
+        },
+        "required": ["objective"]
+      },
+      "then": {
+        "properties": {
+          "vertices": {
+            "items": {
+              "allOf": [
+                {"$ref": "#/$defs/vertex"},
+                {"required": ["weight"]}
+              ]
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "vertices": {
+            "items": {
+              "allOf": [
+                {"$ref": "#/$defs/vertex"},
+                {"not": {"required": ["weight"]}}
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "vertex": {
+      "type": "object",
+      "required": ["index", "name"],
+      "properties": {
+        "index": {"type": "integer", "minimum": 0},
+        "name": {"type": "string", "minLength": 1},
+        "weight": {"type": "number"},
+        "metadata": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "fixedValue": {
+      "type": "object",
+      "required": ["index", "value"],
+      "properties": {
+        "index": {"type": "integer", "minimum": 0},
+        "value": {"enum": [0, 1]}
+      },
+      "additionalProperties": false
+    }
+  }
+}

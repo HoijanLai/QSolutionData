@@ -1,0 +1,49 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {
+    "name": "fund relation triangle",
+    "problem_id": "fund-relations-001",
+    "node_order": [
+      0,
+      1,
+      2
+    ],
+    "variable_names": [
+      "fund_alpha",
+      "fund_beta",
+      "fund_gamma"
+    ]
+  },
+  "nodes": [
+    {
+      "id": 0,
+      "variable_name": "fund_alpha"
+    },
+    {
+      "id": 1,
+      "variable_name": "fund_beta"
+    },
+    {
+      "id": 2,
+      "variable_name": "fund_gamma"
+    }
+  ],
+  "edges": [
+    {
+      "source": 0,
+      "target": 1,
+      "weight": 0.8
+    },
+    {
+      "source": 1,
+      "target": 2,
+      "weight": 0.6
+    },
+    {
+      "source": 0,
+      "target": 2,
+      "weight": 0.4
+    }
+  ]
+}

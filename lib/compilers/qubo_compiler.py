@@ -1,6 +1,7 @@
 import copy
 import math
 from collections.abc import Mapping
+from fractions import Fraction
 from functools import reduce
 from math import gcd
 
@@ -190,11 +191,17 @@ def _initialize_compilation(problem, config):
     }
     variable_names = [variable['name'] for variable in free_variables]
     if any(name.startswith('__slack__') for name in variable_names):
-        raise ValueError("CBQM variable names may not use the reserved '__slack__' prefix.")
+        raise ValueError(
+            "CBQM variable names may not use the reserved '__slack__' prefix."
+        )
 
     state = {
         'offset': 0.0,
+        'offset_contributions': [],
+        'exact_offset': Fraction(0),
         'terms': {},
+        'term_contributions': {},
+        'exact_terms': {},
         'variable_names': variable_names,
         'slack_variables': [],
     }
@@ -237,7 +244,10 @@ def _initialize_compilation(problem, config):
 def _compile_objective(state, objective, fixed_values, qubo_index_by_cbqm):
     """Compile objective."""
     multiplier = 1.0 if objective['sense'] == 'minimize' else -1.0
-    state['offset'] = multiplier * float(objective['offset'])
+    _add_qubo_offset(
+        state,
+        multiplier * float(objective['offset']),
+    )
 
     for cbqm_index, coefficient in objective['linear']:
         _compile_linear_monomial(
@@ -268,7 +278,10 @@ def _compile_linear_monomial(
 ):
     """Compile linear monomial."""
     if cbqm_index in fixed_values:
-        state['offset'] += coefficient * fixed_values[cbqm_index]
+        _add_qubo_offset(
+            state,
+            coefficient * fixed_values[cbqm_index],
+        )
         return
     qubo_index = qubo_index_by_cbqm[cbqm_index]
     _add_qubo_term(state, qubo_index, qubo_index, coefficient)
@@ -296,8 +309,9 @@ def _compile_quadratic_monomial(
     left_fixed = left in fixed_values
     right_fixed = right in fixed_values
     if left_fixed and right_fixed:
-        state['offset'] += (
-            coefficient * fixed_values[left] * fixed_values[right]
+        _add_qubo_offset(
+            state,
+            coefficient * fixed_values[left] * fixed_values[right],
         )
     elif left_fixed:
         if fixed_values[left]:
@@ -335,7 +349,13 @@ def _compile_constraint(
     config,
 ):
     """Compile constraint."""
-    terms, lower, upper, fixed_contribution = _substitute_fixed_values(
+    (
+        terms,
+        lower,
+        upper,
+        fixed_contribution,
+        substitution,
+    ) = _substitute_fixed_values(
         constraint,
         fixed_values,
         qubo_index_by_cbqm,
@@ -355,6 +375,7 @@ def _compile_constraint(
         'family': constraint['family'],
         'penalty': penalty,
         'fixed_contribution': fixed_contribution,
+        'fixed_substitution': substitution,
         'normalization': normalization,
         'encodings': [],
     }
@@ -422,22 +443,85 @@ def _compile_constraint(
 
 def _substitute_fixed_values(constraint, fixed_values, qubo_index_by_cbqm):
     """Substitute fixed values."""
-    fixed_contribution = 0.0
-    terms = {}
+    fixed_contributions = []
+    term_contributions = {}
     for cbqm_index, coefficient in constraint['linear']:
         if cbqm_index in fixed_values:
-            fixed_contribution += coefficient * fixed_values[cbqm_index]
+            fixed_contributions.append(
+                float(coefficient) * fixed_values[cbqm_index]
+            )
         else:
             qubo_index = qubo_index_by_cbqm[cbqm_index]
-            terms[qubo_index] = terms.get(qubo_index, 0.0) + coefficient
+            term_contributions.setdefault(qubo_index, []).append(
+                float(coefficient)
+            )
 
+    fixed_contribution = math.fsum(fixed_contributions)
+    exact_fixed_contribution = sum(
+        (
+            Fraction.from_float(value)
+            for value in fixed_contributions
+        ),
+        start=Fraction(0),
+    )
+    terms = {
+        index: math.fsum(contributions)
+        for index, contributions in term_contributions.items()
+    }
     lower = constraint.get('lower_bound')
     upper = constraint.get('upper_bound')
+    bounds_exact = True
     if lower is not None:
-        lower = float(lower) - fixed_contribution
+        lower, lower_exact = _subtract_fixed_contribution(
+            lower,
+            fixed_contribution,
+            exact_fixed_contribution,
+        )
+        bounds_exact = bounds_exact and lower_exact
     if upper is not None:
-        upper = float(upper) - fixed_contribution
-    return terms, lower, upper, float(fixed_contribution)
+        upper, upper_exact = _subtract_fixed_contribution(
+            upper,
+            fixed_contribution,
+            exact_fixed_contribution,
+        )
+        bounds_exact = bounds_exact and upper_exact
+
+    fixed_contribution_exact = (
+        Fraction.from_float(float(fixed_contribution))
+        == exact_fixed_contribution
+    )
+    substitution = {
+        'fixed_contribution_exact': fixed_contribution_exact,
+        'adjusted_bounds_exact': bounds_exact,
+        'exact_reconstruction': (
+            fixed_contribution_exact and bounds_exact
+        ),
+    }
+    return (
+        terms,
+        lower,
+        upper,
+        float(fixed_contribution),
+        substitution,
+    )
+
+
+def _subtract_fixed_contribution(
+    bound,
+    fixed_contribution,
+    exact_fixed_contribution,
+):
+    """Subtract one bound and report whether the float retained exact algebra."""
+    source_bound = float(bound)
+    adjusted = source_bound - fixed_contribution
+    exact_adjusted = (
+        Fraction.from_float(source_bound)
+        - exact_fixed_contribution
+    )
+    return (
+        adjusted,
+        Fraction.from_float(float(adjusted)) == exact_adjusted,
+    )
 
 
 def _normalize_constraint_lattice(
@@ -467,6 +551,17 @@ def _normalize_constraint_lattice(
         if upper is None
         else _scale_lattice_value(upper, decimal_scale, rounding_tolerance)
     )
+    exact_reconstruction, maximum_reconstruction_error = (
+        _measure_lattice_reconstruction(
+            terms,
+            lower,
+            upper,
+            scaled_terms,
+            scaled_lower,
+            scaled_upper,
+            decimal_scale,
+        )
+    )
 
     nonzero_values = [abs(value) for value in scaled_terms.values() if value]
     if scaled_lower:
@@ -487,8 +582,41 @@ def _normalize_constraint_lattice(
         'integer_divisor': divisor,
         'lattice_unit': divisor / decimal_scale,
         'penalty_domain': 'integer_lattice',
+        # ``rounding_tolerance`` answers whether an approximation is acceptable
+        # for compilation.  Exact-result propagation needs the stricter fact:
+        # dividing the stored integer back by the scale must reproduce every
+        # source float exactly.  Keep both the verdict and its diagnostic error.
+        'exact_reconstruction': exact_reconstruction,
+        'max_abs_reconstruction_error': maximum_reconstruction_error,
     }
     return integer_terms, integer_lower, integer_upper, normalization
+
+
+def _measure_lattice_reconstruction(
+    terms,
+    lower,
+    upper,
+    scaled_terms,
+    scaled_lower,
+    scaled_upper,
+    decimal_scale,
+):
+    """Describe whether integer-lattice conversion changed any source value."""
+    source_and_scaled_values = [
+        (float(coefficient), scaled_terms[index])
+        for index, coefficient in terms.items()
+    ]
+    if lower is not None:
+        source_and_scaled_values.append((float(lower), scaled_lower))
+    if upper is not None:
+        source_and_scaled_values.append((float(upper), scaled_upper))
+
+    reconstruction_errors = [
+        abs(source - (scaled / decimal_scale))
+        for source, scaled in source_and_scaled_values
+    ]
+    maximum_error = max(reconstruction_errors, default=0.0)
+    return maximum_error == 0.0, float(maximum_error)
 
 
 def _scale_lattice_value(value, decimal_scale, tolerance):
@@ -634,33 +762,92 @@ def _bounded_binary_weights(maximum):
 
 def _add_squared_penalty(state, equation_terms, rhs, penalty):
     """Expand one squared linear residual into QUBO coefficients."""
-    state['offset'] += penalty * rhs * rhs
+    exact_penalty = Fraction.from_float(float(penalty))
+    offset_multiplier = rhs * rhs
+    _add_qubo_offset(
+        state,
+        penalty * offset_multiplier,
+        exact_coefficient=exact_penalty * offset_multiplier,
+    )
     ordered_terms = sorted(equation_terms.items())
     for index, coefficient in ordered_terms:
-        diagonal = penalty * (coefficient * coefficient - 2 * rhs * coefficient)
-        _add_qubo_term(state, index, index, diagonal)
+        diagonal_multiplier = (
+            coefficient * coefficient
+            - 2 * rhs * coefficient
+        )
+        diagonal = penalty * diagonal_multiplier
+        _add_qubo_term(
+            state,
+            index,
+            index,
+            diagonal,
+            exact_coefficient=exact_penalty * diagonal_multiplier,
+        )
     for position, (left, left_coefficient) in enumerate(ordered_terms):
         for right, right_coefficient in ordered_terms[position + 1:]:
+            pair_multiplier = 2 * left_coefficient * right_coefficient
             _add_qubo_term(
                 state,
                 left,
                 right,
-                2 * penalty * left_coefficient * right_coefficient,
+                penalty * pair_multiplier,
+                exact_coefficient=exact_penalty * pair_multiplier,
             )
 
 
-def _add_qubo_term(state, left, right, coefficient):
-    """Accumulate one upper-triangular QUBO coefficient."""
+def _add_qubo_offset(state, coefficient, *, exact_coefficient=None):
+    """Accumulate the offset with a rational reference for exactness proof."""
+    value = float(coefficient)
+    exact_value = (
+        Fraction.from_float(value)
+        if exact_coefficient is None
+        else exact_coefficient
+    )
+    state['offset_contributions'].append(value)
+    state['exact_offset'] += exact_value
+    state['offset'] = math.fsum(state['offset_contributions'])
+
+
+def _add_qubo_term(
+    state,
+    left,
+    right,
+    coefficient,
+    *,
+    exact_coefficient=None,
+):
+    """Accumulate one term and retain its exact rational reference."""
     pair = (min(left, right), max(left, right))
-    state['terms'][pair] = state['terms'].get(pair, 0.0) + float(coefficient)
+    value = float(coefficient)
+    exact_value = (
+        Fraction.from_float(value)
+        if exact_coefficient is None
+        else exact_coefficient
+    )
+    state['term_contributions'].setdefault(pair, []).append(value)
+    state['exact_terms'][pair] = (
+        state['exact_terms'].get(pair, Fraction(0))
+        + exact_value
+    )
+    state['terms'][pair] = math.fsum(
+        state['term_contributions'][pair]
+    )
 
 
 def _build_qubo(problem, state, context, config):
     """Build qubo."""
+    context['arithmetic'] = _measure_qubo_arithmetic(state)
+    kept_terms, dropped_terms = _partition_qubo_terms(
+        state['terms'],
+        config['zero_tolerance'],
+    )
+    # Retain the filtered terms in the compilation context.  A tiny coefficient
+    # may be harmless for a heuristic run, but discarding any non-zero term
+    # invalidates a proof that the compiled objective is exactly equivalent.
+    context['dropped_qubo_terms'] = dropped_terms
     terms = [
         [left, right, float(coefficient)]
-        for (left, right), coefficient in sorted(state['terms'].items())
-        if abs(coefficient) > config['zero_tolerance']
+        for (left, right), coefficient in kept_terms
     ]
     return {
         'schema': 'qubo.v1',
@@ -681,10 +868,82 @@ def _build_qubo(problem, state, context, config):
     }
 
 
+def _measure_qubo_arithmetic(state):
+    """Report whether every emitted float equals its exact algebraic sum."""
+    inexact_locations = []
+    if Fraction.from_float(float(state['offset'])) != state['exact_offset']:
+        inexact_locations.append('offset')
+
+    for left, right in sorted(state['exact_terms']):
+        coefficient = state['terms'][(left, right)]
+        if (
+            Fraction.from_float(float(coefficient))
+            != state['exact_terms'][(left, right)]
+        ):
+            inexact_locations.append(f'term:{left},{right}')
+
+    return {
+        'exact_accumulation': not inexact_locations,
+        'inexact_locations': inexact_locations,
+        'summation': 'math.fsum-with-rational-reference',
+    }
+
+
+def _partition_qubo_terms(terms, zero_tolerance):
+    """Split accumulated terms into emitted and non-zero tolerance drops."""
+    kept = []
+    dropped = []
+    for (left, right), coefficient in sorted(terms.items()):
+        item = [left, right, float(coefficient)]
+        if abs(coefficient) > zero_tolerance:
+            kept.append(((left, right), coefficient))
+        elif coefficient != 0.0:
+            dropped.append(item)
+    return kept, dropped
+
+
 def _finalize_context(context, qubo):
     """Finalize context."""
     context['qubo_variable_count'] = qubo['num_variables']
     context['qubo_variable_names'] = copy.deepcopy(qubo['variable_names'])
+    context['equivalence'] = _build_equivalence_certificate(context)
+
+
+def _build_equivalence_certificate(context):
+    """Build the evidence gate used for safe exact-result propagation.
+
+    This certificate deliberately does *not* claim that the configured finite
+    penalties force every QUBO optimum to be feasible.  It only certifies the
+    exact algebraic correspondence needed by a caller that separately verifies
+    the projected sample's feasibility and zero-penalty energy relationship.
+    """
+    constraint_lattice_exact = all(
+        constraint['normalization']['exact_reconstruction']
+        and constraint['fixed_substitution']['exact_reconstruction']
+        for constraint in context['constraints']
+    )
+    no_nonzero_terms_dropped = not context['dropped_qubo_terms']
+    arithmetic_exact = context['arithmetic']['exact_accumulation']
+    return {
+        'schema': 'qubo-compilation-equivalence.v1',
+        'constraint_lattice_exact': constraint_lattice_exact,
+        'no_nonzero_terms_dropped': no_nonzero_terms_dropped,
+        'arithmetic_exact': arithmetic_exact,
+        'feasible_set_preserved': constraint_lattice_exact,
+        'objective_mapping_preserved': (
+            no_nonzero_terms_dropped and arithmetic_exact
+        ),
+        'exact_projection_certified': (
+            constraint_lattice_exact
+            and no_nonzero_terms_dropped
+            and arithmetic_exact
+        ),
+        'scope': (
+            'Certifies exact source-to-QUBO algebra only; callers must also '
+            'verify global solver optimality, projected feasibility, and the '
+            'zero-penalty objective-energy relationship.'
+        ),
+    }
 
 
 def _public_context(context):

@@ -1,0 +1,64 @@
+{
+  "schema": "cbqm.v1",
+  "problem_id": "select-one-example",
+  "variables": [
+    {
+      "index": 0,
+      "name": "asset_alpha",
+      "vartype": "BINARY",
+      "kind": "selection",
+      "metadata": {
+        "real_name": "资产甲"
+      }
+    },
+    {
+      "index": 1,
+      "name": "asset_beta",
+      "vartype": "BINARY",
+      "kind": "selection",
+      "metadata": {
+        "real_name": "资产乙"
+      }
+    }
+  ],
+  "objective": {
+    "sense": "minimize",
+    "offset": 0.0,
+    "linear": [
+      [
+        0,
+        -2.0
+      ],
+      [
+        1,
+        -1.0
+      ]
+    ],
+    "quadratic": []
+  },
+  "constraints": [
+    {
+      "name": "select_one",
+      "family": "selection",
+      "linear": [
+        [
+          0,
+          1.0
+        ],
+        [
+          1,
+          1.0
+        ]
+      ],
+      "lower_bound": 1.0,
+      "upper_bound": 1.0,
+      "metadata": {
+        "description": "Exactly one real asset is selected."
+      }
+    }
+  ],
+  "fixed_values": [],
+  "metadata": {
+    "description": "Small canonical CBQM used by the problem-case example."
+  }
+}
