@@ -11,6 +11,7 @@ __all__ = [
     'QaoaQuboSolver',
     'QrbnbrQuboSolver',
     'QuboSolveOutcome',
+    'ScmfQaoaSolver',
     'SimulatedAnnealingQuboSolver',
 ]
 
@@ -43,6 +44,11 @@ def __getattr__(name):
 
         globals()[name] = QrbnbrQuboSolver
         return QrbnbrQuboSolver
+    if name == 'ScmfQaoaSolver':
+        from .scmf_qaoa import ScmfQaoaSolver
+
+        globals()[name] = ScmfQaoaSolver
+        return ScmfQaoaSolver
     if name == 'SimulatedAnnealingQuboSolver':
         from .simulated_annealing import SimulatedAnnealingQuboSolver
 

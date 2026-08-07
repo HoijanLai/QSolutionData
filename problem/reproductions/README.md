@@ -60,3 +60,33 @@ GwBranchAndBoundQuboSolver   GW-informed parity BnB
 因此 notebook 验证的是“方法链路和小规模最优性”，不是对论文所有图表数值的
 逐点复刻。后续路线应继续使用同一结构，并把“已复现、工程扩展、尚未复现”分别
 写进 metadata 和文档。
+
+## SCMF-QAOA 首个验收案例
+
+| 项目 | 当前实现 |
+|---|---|
+| 论文问题 | 零场、完全图、未缩放 Gaussian SK spin glass |
+| 输入契约 | `qubo.v1`，metadata 保留论文 Ising Hamiltonian |
+| 输出契约 | `qubo-result.v1`，启发式状态固定为 `feasible` |
+| 分解 | seeded balanced random partitions |
+| 量子子问题 | 理想 NumPy statevector QAOA |
+| 参数 | 所有子问题共享 `2p` 个角度 |
+| environment | seeded random-order asynchronous self-consistency |
+| 外层优化 | dependency-light Nelder--Mead |
+| 零场对称性 | 固定最后一个 spin 为 `+1`，再恢复完整 sample |
+| 对照 | Exact、完整 QAOA、environmentless independent subproblems |
+
+固定来源：
+
+- 论文：`Self-consistent mean-field quantum approximate optimization`
+- 版本：`arXiv:2603.09838v1`
+- 当前未发现作者公开代码；实现依据论文公式独立完成
+
+本阶段复现的是小规模理想模拟器上的算法结构、式 (8) 一体期望值、`K=1`
+退化性质、自洽收敛与采样链路。当前没有声称复现论文的完整规模曲线、解析
+back-propagation 加速、252-variable molecular docking、classical clique repair、
+Rigetti Ankaa-3 硬件结果或噪声缓解。
+
+为保证确定性与可测试性，当前实现按 seeded permutation 完成整轮异步更新，
+并以 environment 的 absolute max-delta 及能量的 relative delta 联合判断收敛；
+这与论文式 (5) 的逐元素相对阈值和随机单子问题迭代不是逐字相同的执行策略。

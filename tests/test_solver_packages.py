@@ -76,6 +76,7 @@ class SolverPackageTests(unittest.TestCase):
                 'QaoaQuboSolver',
                 'QrbnbrQuboSolver',
                 'QuboSolveOutcome',
+                'ScmfQaoaSolver',
                 'SimulatedAnnealingQuboSolver',
             ],
             qubo.__all__,
