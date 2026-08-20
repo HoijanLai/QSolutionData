@@ -63,6 +63,12 @@
    - 验证两条路线共享相同的 parity-tree optimality certificate
    - 展示 nodes、pruned、relaxations 与 exact leaves，不实现算法逻辑
 
+9. `09_scmf_qaoa_reproduction.ipynb`
+   - 生成论文约定的 deterministic Gaussian SK `qubo.v1`
+   - 对比 Exact、完整 QAOA、environmentless 分区和 SCMF-QAOA
+   - 检查零场 Z2 symmetry breaking、environment convergence 和固定 seed
+   - 展示 expectation、sample energy 和 decomposition 指标，不实现算法逻辑
+
 ## 运行
 
 在 VS Code 中打开 notebook，选择项目 `.venv` 对应的 Python 3.11 kernel，

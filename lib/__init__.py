@@ -30,9 +30,41 @@ _LAZY_EXPORTS = {
         '.portfolio',
         'build_portfolio_cbqm',
     ),
+    'build_equal_weight_selection_cbqm': (
+        '.portfolio',
+        'build_equal_weight_selection_cbqm',
+    ),
+    'audit_equal_weight_selection': (
+        '.portfolio',
+        'audit_equal_weight_selection',
+    ),
+    'decode_equal_weight_selection': (
+        '.portfolio',
+        'decode_equal_weight_selection',
+    ),
     'client_profile': (
         '.portfolio',
         'client_profile',
+    ),
+    'build_variable_weight_problem': (
+        '.portfolio',
+        'build_variable_weight_problem',
+    ),
+    'relax_round_reoptimize': (
+        '.portfolio',
+        'relax_round_reoptimize',
+    ),
+    'reoptimize_selected_support': (
+        '.portfolio',
+        'reoptimize_selected_support',
+    ),
+    'solve_continuous_allocation': (
+        '.portfolio',
+        'solve_continuous_allocation',
+    ),
+    'solve_joint_allocation_milp': (
+        '.portfolio',
+        'solve_joint_allocation_milp',
     ),
     'CbqmSolver': (
         '.contracts',
@@ -49,6 +81,14 @@ _LAZY_EXPORTS = {
     'prepare_qubo_inputs': (
         '.pipeline',
         'prepare_qubo_inputs',
+    ),
+    'load_real_asset_pool': (
+        '.pipeline',
+        'load_real_asset_pool',
+    ),
+    'select_asset_candidates': (
+        '.pipeline',
+        'select_asset_candidates',
     ),
     'QiskitQuadraticProgramAdapter': (
         '.adapters',
@@ -103,11 +143,21 @@ __all__ = [
     'asset_scoring',
     'asset_similarity',
     'build_portfolio_cbqm',
+    'build_equal_weight_selection_cbqm',
+    'audit_equal_weight_selection',
+    'decode_equal_weight_selection',
     'client_profile',
+    'build_variable_weight_problem',
+    'relax_round_reoptimize',
+    'reoptimize_selected_support',
+    'solve_continuous_allocation',
+    'solve_joint_allocation_milp',
     'CbqmSolver',
     'compile_qubo',
     'portfolio_constraints',
     'prepare_qubo_inputs',
+    'load_real_asset_pool',
+    'select_asset_candidates',
     'QiskitQuadraticProgramAdapter',
     'MisSolver',
     'QuboSolver',

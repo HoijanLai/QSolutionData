@@ -4,6 +4,7 @@ from .base import BaseQuboSolver, QuboSolveOutcome
 from .exact import ExactQuboSolver
 
 __all__ = [
+    'AerMpsQaoaSolver',
     'BaseQuboSolver',
     'ExactQuboSolver',
     'GoemansWilliamsonQuboSolver',
@@ -11,6 +12,7 @@ __all__ = [
     'QaoaQuboSolver',
     'QrbnbrQuboSolver',
     'QuboSolveOutcome',
+    'ScmfQaoaSolver',
     'SimulatedAnnealingQuboSolver',
 ]
 
@@ -23,6 +25,11 @@ def __getattr__(name):
     applications can import those lightweight pieces without importing—or
     requiring—NumPy.
     """
+    if name == 'AerMpsQaoaSolver':
+        from .aer_mps_qaoa import AerMpsQaoaSolver
+
+        globals()[name] = AerMpsQaoaSolver
+        return AerMpsQaoaSolver
     if name == 'QaoaQuboSolver':
         from .qaoa import QaoaQuboSolver
 
@@ -43,6 +50,11 @@ def __getattr__(name):
 
         globals()[name] = QrbnbrQuboSolver
         return QrbnbrQuboSolver
+    if name == 'ScmfQaoaSolver':
+        from .scmf_qaoa import ScmfQaoaSolver
+
+        globals()[name] = ScmfQaoaSolver
+        return ScmfQaoaSolver
     if name == 'SimulatedAnnealingQuboSolver':
         from .simulated_annealing import SimulatedAnnealingQuboSolver
 

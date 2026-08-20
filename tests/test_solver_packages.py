@@ -1,7 +1,7 @@
-from pathlib import Path
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 
 from lib import solvers
 from lib.solvers import cbqm, mis, qubo
@@ -69,6 +69,7 @@ class SolverPackageTests(unittest.TestCase):
         )
         self.assertEqual(
             [
+                'AerMpsQaoaSolver',
                 'BaseQuboSolver',
                 'ExactQuboSolver',
                 'GoemansWilliamsonQuboSolver',
@@ -76,6 +77,7 @@ class SolverPackageTests(unittest.TestCase):
                 'QaoaQuboSolver',
                 'QrbnbrQuboSolver',
                 'QuboSolveOutcome',
+                'ScmfQaoaSolver',
                 'SimulatedAnnealingQuboSolver',
             ],
             qubo.__all__,
