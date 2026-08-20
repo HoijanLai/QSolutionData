@@ -1,0 +1,451 @@
+{
+  "schema": "asset-allocation-policy.v1",
+  "source": {
+    "document": "资产配置Demo_QUBO前置准备简版.pdf",
+    "title": "资产配置 Demo：QUBO 前置准备简版",
+    "pages": 2,
+    "transcription_method": "visual_review",
+    "transcribed_on": "2026-08-18"
+  },
+  "scope": {
+    "purpose": "基于真实资产池的收益风险画像、相似性分析、客户模板和配置约束，为后续问题契约与 QUBO 编码提供标准输入。",
+    "data_assumption": "当前资产池主要包含基金概况和多周期指标，不包含日频净值序列。",
+    "similarity_interpretation": "当前阶段使用收益、波动、回撤和风险调整收益指标形成资产风险收益画像相似性，不将其称为真实净值相关性。",
+    "future_extension": "接入日频净值后，可进一步计算真实收益相关性和协方差矩阵。",
+    "pipeline_order": [
+      "从真实资产池读取基金概况与多周期指标",
+      "生成收益、风险和稳定性画像",
+      "计算资产风险收益画像相似性",
+      "按客户模板生成配置约束",
+      "输出不含权重档位编码的 QUBO 前置数据"
+    ],
+    "unsupported_rules": [
+      "申购规则",
+      "赎回规则",
+      "流动性约束"
+    ],
+    "intentionally_omitted": [
+      "权重档位",
+      "由权重档位产生的二进制变量映射"
+    ]
+  },
+  "asset_portrait": {
+    "return": {
+      "available_fields": [
+        "近3月收益率",
+        "近6月收益率",
+        "近1年收益率",
+        "近2年收益率",
+        "近3年收益率",
+        "近3年年化收益率"
+      ],
+      "score_fields": [
+        "近6月收益率",
+        "近1年收益率",
+        "近2年收益率",
+        "近3年年化收益率"
+      ],
+      "display_only_fields": [
+        "近3月收益率"
+      ],
+      "score_method": "weighted_sum",
+      "weights": null
+    },
+    "risk": {
+      "score_fields": [
+        "近1年收益标准差",
+        "近3年收益标准差",
+        "近1年下行标准差",
+        "近3年下行标准差",
+        "近1年最大回撤",
+        "近3年最大回撤"
+      ],
+      "score_method": "weighted_sum",
+      "max_drawdown_transform": "absolute_value",
+      "weights": null
+    },
+    "stability": {
+      "score_fields": [
+        "近1年Sharpe",
+        "近3年Sharpe",
+        "近1年Sortino",
+        "近3年Sortino",
+        "近1年Calmar",
+        "近3年Calmar"
+      ],
+      "score_method": "weighted_sum",
+      "weights": null
+    },
+    "classification_fields": [
+      "投资类型(二级)",
+      "基金经理"
+    ],
+    "classification_uses": [
+      "资产分类",
+      "风险等级",
+      "集中度约束"
+    ]
+  },
+  "similarity": {
+    "name": "资产风险收益画像相似性",
+    "feature_fields": [
+      "近6月收益率",
+      "近1年收益率",
+      "近2年收益率",
+      "近3年收益率",
+      "近3年年化收益率",
+      "近1年收益标准差",
+      "近3年收益标准差",
+      "近1年下行标准差",
+      "近3年下行标准差",
+      "近1年最大回撤",
+      "近3年最大回撤",
+      "近1年Sharpe",
+      "近3年Sharpe",
+      "近1年Sortino",
+      "近3年Sortino"
+    ],
+    "normalization": "z_score",
+    "metric": "cosine_similarity",
+    "high_similarity_threshold": {
+      "operator": ">=",
+      "value": 0.85
+    },
+    "low_similarity_threshold": {
+      "operator": "<=",
+      "value": 0.3
+    },
+    "suggested_outputs": [
+      "相似性热力图",
+      "高相似资产组",
+      "低相似资产组",
+      "资产风格聚类"
+    ]
+  },
+  "client_profiles": {
+    "conservative": {
+      "label": "保守型",
+      "target_return": 0.035,
+      "volatility_upper_bound": 0.045,
+      "max_drawdown_upper_bound": 0.08,
+      "holding_count": {
+        "min": 5,
+        "max": 10
+      },
+      "single_fund_weight_upper_bound": 0.2,
+      "asset_class_weight_bounds": {
+        "cash_money": {
+          "label": "现金/货币",
+          "min": 0.15,
+          "max": 0.35
+        },
+        "fixed_income": {
+          "label": "固收",
+          "min": 0.6,
+          "max": 0.85
+        },
+        "mixed": {
+          "label": "混合",
+          "min": 0.0,
+          "max": 0.1
+        },
+        "equity": {
+          "label": "权益",
+          "min": 0.0,
+          "max": 0.1
+        },
+        "alternative": {
+          "label": "另类",
+          "min": 0.0,
+          "max": 0.05
+        }
+      },
+      "r5_weight_upper_bound": 0.0
+    },
+    "steady": {
+      "label": "稳健型",
+      "target_return": 0.055,
+      "volatility_upper_bound": 0.08,
+      "max_drawdown_upper_bound": 0.12,
+      "holding_count": {
+        "min": 8,
+        "max": 15
+      },
+      "single_fund_weight_upper_bound": 0.15,
+      "asset_class_weight_bounds": {
+        "cash_money": {
+          "label": "现金/货币",
+          "min": 0.05,
+          "max": 0.2
+        },
+        "fixed_income": {
+          "label": "固收",
+          "min": 0.45,
+          "max": 0.75
+        },
+        "mixed": {
+          "label": "混合",
+          "min": 0.0,
+          "max": 0.25
+        },
+        "equity": {
+          "label": "权益",
+          "min": 0.0,
+          "max": 0.3
+        },
+        "alternative": {
+          "label": "另类",
+          "min": 0.0,
+          "max": 0.1
+        }
+      },
+      "r5_weight_upper_bound": 0.1
+    },
+    "balanced": {
+      "label": "平衡型",
+      "target_return": 0.075,
+      "volatility_upper_bound": 0.13,
+      "max_drawdown_upper_bound": 0.2,
+      "holding_count": {
+        "min": 10,
+        "max": 18
+      },
+      "single_fund_weight_upper_bound": 0.12,
+      "asset_class_weight_bounds": {
+        "cash_money": {
+          "label": "现金/货币",
+          "min": 0.03,
+          "max": 0.15
+        },
+        "fixed_income": {
+          "label": "固收",
+          "min": 0.25,
+          "max": 0.55
+        },
+        "mixed": {
+          "label": "混合",
+          "min": 0.0,
+          "max": 0.3
+        },
+        "equity": {
+          "label": "权益",
+          "min": 0.2,
+          "max": 0.5
+        },
+        "alternative": {
+          "label": "另类",
+          "min": 0.0,
+          "max": 0.15
+        }
+      },
+      "r5_weight_upper_bound": 0.25
+    },
+    "aggressive": {
+      "label": "进取型",
+      "target_return": 0.1,
+      "volatility_upper_bound": 0.2,
+      "max_drawdown_upper_bound": 0.3,
+      "holding_count": {
+        "min": 12,
+        "max": 25
+      },
+      "single_fund_weight_upper_bound": 0.1,
+      "asset_class_weight_bounds": {
+        "cash_money": {
+          "label": "现金/货币",
+          "min": 0.0,
+          "max": 0.1
+        },
+        "fixed_income": {
+          "label": "固收",
+          "min": 0.1,
+          "max": 0.35
+        },
+        "mixed": {
+          "label": "混合",
+          "min": 0.0,
+          "max": 0.3
+        },
+        "equity": {
+          "label": "权益",
+          "min": 0.4,
+          "max": 0.75
+        },
+        "alternative": {
+          "label": "另类",
+          "min": 0.0,
+          "max": 0.2
+        }
+      },
+      "r5_weight_upper_bound": 0.5
+    }
+  },
+  "default_profile": "steady",
+  "classification_and_risk": [
+    {
+      "secondary_investment_types": [
+        "货币市场型基金"
+      ],
+      "asset_class": "cash_money",
+      "asset_class_label": "现金/货币",
+      "risk_level": "R1"
+    },
+    {
+      "secondary_investment_types": [
+        "短期纯债型基金",
+        "中长期纯债型基金",
+        "指数债券型基金"
+      ],
+      "asset_class": "fixed_income",
+      "asset_class_label": "固定收益",
+      "risk_level": "R2"
+    },
+    {
+      "secondary_investment_types": [
+        "混合债券型一级基金",
+        "混合债券型二级基金",
+        "股票多空"
+      ],
+      "asset_class": "fixed_income_enhanced_or_alternative",
+      "asset_class_label": "固收增强或另类",
+      "risk_level": "R3"
+    },
+    {
+      "secondary_investment_types": [
+        "偏债混合型基金",
+        "灵活配置型基金",
+        "平衡混合型基金",
+        "偏股混合型基金"
+      ],
+      "asset_class": "mixed",
+      "asset_class_label": "混合资产",
+      "risk_level": "R3-R4"
+    },
+    {
+      "secondary_investment_types": [
+        "普通股票型基金",
+        "被动指数型基金",
+        "增强指数型基金"
+      ],
+      "asset_class": "equity",
+      "asset_class_label": "权益",
+      "risk_level": "R4-R5"
+    },
+    {
+      "secondary_investment_types": [
+        "商品型基金",
+        "可转换债券型基金"
+      ],
+      "asset_class": "alternative",
+      "asset_class_label": "另类或高波动资产",
+      "risk_level": "R5"
+    }
+  ],
+  "constraints": [
+    {
+      "id": "total_weight",
+      "kind": "equality",
+      "expression": "sum(weight_i) = 1.0",
+      "value": 1.0
+    },
+    {
+      "id": "holding_count",
+      "kind": "profile_bound",
+      "expression": "profile.holding_count.min <= count(weight_i > 0) <= profile.holding_count.max"
+    },
+    {
+      "id": "single_fund_weight_cap",
+      "kind": "profile_upper_bound",
+      "expression": "weight_i <= profile.single_fund_weight_upper_bound"
+    },
+    {
+      "id": "asset_class_weight_bounds",
+      "kind": "profile_bounds",
+      "expression": "profile.class.min <= sum(weight_i for i in class) <= profile.class.max"
+    },
+    {
+      "id": "r5_weight_cap",
+      "kind": "profile_upper_bound",
+      "expression": "sum(weight_i for risk_level_i = R5) <= profile.r5_weight_upper_bound"
+    },
+    {
+      "id": "manager_concentration_cap",
+      "kind": "upper_bound",
+      "expression": "sum(weight_i for manager_i = manager) <= 0.25",
+      "value": 0.25
+    },
+    {
+      "id": "secondary_type_concentration_cap",
+      "kind": "upper_bound",
+      "expression": "sum(weight_i for secondary_type_i = secondary_type) <= 0.35",
+      "value": 0.35
+    },
+    {
+      "id": "high_similarity_group_cap",
+      "kind": "upper_bound",
+      "expression": "sum(weight_i for i in high_similarity_group) <= 0.40",
+      "value": 0.4,
+      "group_threshold": 0.85
+    }
+  ],
+  "profile_performance_parameters": [
+    {
+      "id": "target_return",
+      "source_label": "目标收益",
+      "interpretation": "target",
+      "aggregation_formula": null
+    },
+    {
+      "id": "volatility_upper_bound",
+      "source_label": "波动上限",
+      "interpretation": "upper_bound",
+      "aggregation_formula": null
+    },
+    {
+      "id": "max_drawdown_upper_bound",
+      "source_label": "回撤上限",
+      "interpretation": "upper_bound",
+      "aggregation_formula": null
+    }
+  ],
+  "required_pre_qubo_output": [
+    "基金代码",
+    "基金名称",
+    "资产大类",
+    "投资类型(二级)",
+    "风险等级",
+    "收益得分",
+    "风险得分",
+    "稳定性得分",
+    "资产相似性矩阵",
+    "高相似资产组",
+    "客户模板",
+    "配置约束"
+  ],
+  "unresolved_definitions": [
+    {
+      "id": "score_weights",
+      "description": "收益、风险和稳定性得分的具体加权系数未在源文件中定义。"
+    },
+    {
+      "id": "portfolio_performance_aggregation",
+      "description": "目标收益、组合波动率和组合最大回撤如何由单基金多周期指标聚合，源文件未定义。"
+    },
+    {
+      "id": "high_similarity_group_construction",
+      "description": "高相似资产组是按连通分量、完全子图还是聚类算法生成，源文件未定义。"
+    },
+    {
+      "id": "risk_range_resolution",
+      "description": "R3-R4 和 R4-R5 如何为单只基金确定唯一风险等级，源文件未定义。"
+    },
+    {
+      "id": "composite_asset_class_resolution",
+      "description": "源文件将一级债基、二级债基和股票多空合并标为‘固收增强或另类’，但未定义如何映射到客户模板中的单一资产大类。"
+    },
+    {
+      "id": "target_return_enforcement",
+      "description": "目标收益是硬下限、软目标还是仅用于展示，源文件未定义。"
+    }
+  ]
+}

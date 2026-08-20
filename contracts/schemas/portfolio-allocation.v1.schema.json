@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:qsolutiondata:schema:portfolio-allocation.v1",
+  "title": "Variable-Weight Portfolio Allocation v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "problem_id",
+    "assets",
+    "objective",
+    "constraints",
+    "metadata"
+  ],
+  "properties": {
+    "schema": {"const": "portfolio-allocation.v1"},
+    "problem_id": {"type": "string", "minLength": 1},
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/asset"}
+    },
+    "objective": {
+      "type": "object",
+      "required": ["sense", "weight_cost_field", "description"],
+      "properties": {
+        "sense": {"const": "minimize"},
+        "weight_cost_field": {"const": "scores.selection_cost"},
+        "description": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "constraints": {"type": "object"},
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "required": [
+        "index",
+        "code",
+        "fund_manager",
+        "investment_type_secondary",
+        "asset_class",
+        "risk_level",
+        "scores",
+        "performance_proxies"
+      ],
+      "properties": {
+        "index": {"type": "integer", "minimum": 0},
+        "code": {"type": "string", "minLength": 1},
+        "security_name": {"type": "string"},
+        "fund_manager": {},
+        "investment_type_secondary": {"type": "string", "minLength": 1},
+        "asset_class": {"type": "string", "minLength": 1},
+        "risk_level": {"type": "string", "minLength": 1},
+        "scores": {
+          "type": "object",
+          "required": ["return", "risk", "stability", "selection_cost"],
+          "additionalProperties": {"type": "number"}
+        },
+        "performance_proxies": {
+          "type": "object",
+          "required": ["annualized_return", "volatility", "max_drawdown"],
+          "additionalProperties": {"type": "number"}
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

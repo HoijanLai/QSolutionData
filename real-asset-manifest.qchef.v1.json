@@ -1,0 +1,14 @@
+{
+  "schema": "qchef.real-asset-dataset-manifest.v1",
+  "dataset_id": "qsolution_real_asset_pool_cn",
+  "dataset_version": "1.0.0",
+  "excel": {
+    "filename": "真实资产池.xlsx",
+    "sha256": "sha256:739fd551eb6c175df0385a45eaa6406015e4067c1b2af0258c0cae9a80847a03",
+    "row_count": 610
+  },
+  "policy": {
+    "version": "1.0.0",
+    "sha256": "sha256:f0da99eb27f0fb540afeacc52db721e06859e816327e3749268686c572a9b518"
+  }
+}

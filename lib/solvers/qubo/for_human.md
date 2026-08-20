@@ -76,6 +76,9 @@ class MyQuboSolver:
 - `GwBranchAndBoundQuboSolver`：论文的 classical control；使用 GW SDP
   matrix 生成候选和分支信息，与 QRR-BnB 共享 parity tree 和 exact closure。
 - `QaoaQuboSolver`：NumPy statevector QAOA，返回启发式 `feasible`。
+- `ScmfQaoaSolver`：SCMF-QAOA 论文的独立复现；把完整 QUBO 转为 Ising、
+  分成平衡子问题，以共享 QAOA 参数和自洽 mean-field environment 保留跨区
+  影响，再对 product state 采样并返回 `feasible`。
 - `QrbnbrQuboSolver`：面向非负权 MaxCut QUBO 的 Q-RBnBR 论文复现；p=1
   QAOA/QRR 指导 edge-parity tree，admissible bound 与完整 leaf closure
   决定是否可以声明 `optimal`。
